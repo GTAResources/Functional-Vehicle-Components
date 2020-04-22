@@ -9,4 +9,4 @@ This is a Grand Theft Auto San Andreas modification which adds features/ functio
 <br/>
 <br/>
 
-The documentation on how to adapt your vehicles with the modification is WIP. It is still under alpha stages so huge breaking changes might occur.
+The documentation on how to adapt your vehicles with the modification is [here](https://github.com/user-grinch/Functional-Vehicle-Components/wiki). It is still under alpha stages so huge breaking changes might occur.

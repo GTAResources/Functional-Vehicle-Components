@@ -1,6 +1,7 @@
 script_name('Functional Vehicle Components')
 script_author("Grinch_")
 script_version("1.0-beta")
+script_version_numebr(20200422) -- YYYYMMDD
 script_description("Adds more features/ functions to vehicle parts")
 script_dependencies("ffi", "Memory", "MoonAdditions", "log")
 script_properties('work-in-pause')
@@ -213,13 +214,11 @@ end
 function FunctionalChain(veh, prefix)
 
     local chain, tdata = GetComponentData(veh, prefix)
-    local model = getCarModel(veh)
-    local pVeh = getCarPointer(veh)
     local speed = nil
     local chain_table = {}
 
-    local angle1 = ConvertCheckDataType(tdata, "number", 1)
-    if not angle1 then return end
+    local time = ConvertCheckDataType(tdata, "number", 1)
+    if not time then return end
 
     for _, comp in ipairs(chain:get_child_components()) do
         table.insert(chain_table, comp)
@@ -243,7 +242,7 @@ function FunctionalChain(veh, prefix)
                         chain_table[j]:set_alpha(0)
                     end
                 end
-                wait(angle1 / math.abs(speed))
+                wait(time / math.abs(speed))
             end
         end
         if speed <= -1 then
@@ -257,7 +256,7 @@ function FunctionalChain(veh, prefix)
                         chain_table[j]:set_alpha(0)
                     end
                 end
-                wait(angle1 / math.abs(speed))
+                wait(time / math.abs(speed))
             end
         end
         wait(0)
@@ -349,8 +348,6 @@ end
 
 function FunctionalNeutralLed(veh, prefix)
 
-    local pVeh = getCarPointer(veh)
-    local model = getCarModel(veh)
     local nled = mad.get_vehicle_component(veh, prefix)
 
     if not nled then return end
@@ -621,7 +618,9 @@ function FunctionalSpeedometer(veh, prefix)
     local unit = cdata[1] or "mph"
     local speedm_max = tonumber(cdata[2]) or 120
     local total_rot = math.abs(high) + math.abs(low)
-    local rotation = total_rot / speedm_max
+    local rotation = 0
+    local bac_rot = 0
+    local bac_speed = 0
 
     while true do
         if not DoesVehicleExist(veh, prefix) then return end
@@ -629,9 +628,25 @@ function FunctionalSpeedometer(veh, prefix)
         local speed = GetRealisticSpeed(veh, 1) - 0.2
 
         if unit == "mph" then speed = speed / 1.6 end
-
         if speed > speedm_max then speed = speedm_max end
-        matrix:rotate_y(rotation * speed + low)
+
+        rotation = math.floor(total_rot / speedm_max * speed + low)
+
+        while bac_rot ~= rotation do
+            speed = GetRealisticSpeed(veh, 1) - 0.2
+            matrix:rotate_y(bac_rot)
+
+            if bac_rot < rotation then
+                bac_rot = bac_rot + 1
+            end
+            if bac_rot > rotation then
+                bac_rot = bac_rot - 1
+            end
+            if speed > bac_speed then break end
+            bac_speed = speed
+            wait(0)
+        end
+
         wait(0)
     end
 end
@@ -689,7 +704,7 @@ function FunctionalFrontBrake(veh, prefix)
     end
 end
 
-function FunctionalRearBrake(veh, prefix, brake_type)
+function FunctionalRearBrake(veh, prefix)
 
     local comp, tdata = GetComponentData(veh, prefix)
 
@@ -725,8 +740,8 @@ function FunctionalRearBrake(veh, prefix, brake_type)
 
             if angle < 0 then temp = -1 end
 
-            for i = 0, angle, temp do
-                matrix:rotate_x(i)
+            for i = 0, angle/2, temp do
+                matrix:rotate_x(i*2)
                 wait(0.1)
             end
 
@@ -734,8 +749,8 @@ function FunctionalRearBrake(veh, prefix, brake_type)
                 wait(0)
             end
 
-            for i = angle, 0, (temp * -1) do
-                matrix:rotate_x(i)
+            for i = angle/2, 0, (temp * -1) do
+                matrix:rotate_x(i*2)
                 wait(0.1)
             end
 
