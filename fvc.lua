@@ -6,6 +6,56 @@ script_dependencies("ffi", "Memory", "MoonAdditions", "log")
 script_properties('work-in-pause')
 
 --------------------------------------------------
+-- Ignore model values
+-- If the flag is true then values from models are ignored and below values will be applied
+-- This is just for ease of testing, do NOT distribute the script with the flag set to true
+IGNORE_MODEL_VALUES = false
+
+-- Below values are only applied if the above flag is set to 'true' (default values are already set)
+-- Times are calculated in miliseceonds
+
+-- FunctionalChain
+CHAIN_TIME_FACTOR = 5
+
+-- FucntionalGearLever
+GEAR_LEVER_NORMAL_ANGLE = 15
+GEAR_LEVER_OFFSET_ANGLE = 15
+GEAR_LEVER_WAIT_TIME = 1
+
+-- FunctionalOdometer
+ODOMETER_ROTATION_ANGLE = 36
+ODOMETER_ROTATION_WAIT_TIME = 25
+
+-- FunctionalClutch
+CLUTCH_ROTATION_ANGLE = 17
+CLUTCH_WAIT_TIME = 1
+
+-- FunctionalThrottle
+THROTTLE_ROTATION_AXIS = "y"
+THROTTLE_WAIT_TIME = 1
+THROTTLE_ROTATION_ROT_X = 50
+THROTTLE_ROTATION_ROT_Y = 0
+THROTTLE_ROTATION_ROT_Z = 0
+
+-- FunctionalSpeedometer
+SPEEDOMETER_ANGLE_START = 0
+SPEEDOMETER_ANGLE_END = 180
+SPEEDOMETER_DEFAULT_UNIT = "mph"
+SPEEDOMETER_MAX_SPEED = 120
+
+-- FunctionalFrontBrake
+FRONT_BRAKE_OFFSET_ANGLE = 15
+FRONT_BRAKE_WAIT_TIME = 1
+
+-- FunctionalReadBrake
+REAR_BRAKE_OFFSET_ANGLE = 15
+REAR_BRAKE_WAIT_TIME = 1
+
+-- FunctionalRPMMeter
+RPMMETER_ANGLE_START = 0
+RPMMETER_ANGLE_END = 180
+RPMMETER_MAX_RPM = 10
+--------------------------------------------------
 -- Libraries
 
 ffi = require 'ffi'
@@ -16,7 +66,6 @@ log = require 'log'
 --------------------------------------------------
 -- log
 
-log.usecolor = false
 log.outfile = script.this.name .. ".log"
 
 local file_path = string.format("%s//%s", getGameDirectory(), log.outfile)
@@ -31,25 +80,9 @@ log.info("Please provide both 'moonloader.log' & '" .. log.outfile ..
 math.randomseed(os.time())
 CVehicleModelInfo = ffi.cast("uintptr_t*", 0xA9B0C8)
 isThisModelABike = ffi.cast("bool(*)(int model)", 0x4C5B60)
+fTimeStep = ffi.cast("float*",0xB7CB5C) -- CTimer::ms_fTimeStep
 
 tmain = {
-    name = -- don't change these, update your model instead (character limit 23)
-    {
-        anim = "fc_anim",
-        chain = "fc_chain_ms=(-?%d[%d.]*)",
-        clutch = "fc_cl_z=(-?%d[%d.]*)",
-        dled = "fc_dled",
-        fbrake = "fc_fbrake_z=(-?%d[%d.]*)",
-        rbrake = "fc_rbrake_x=(-?%d[%d.]*)",
-        gas_handle = "fc_gas_z=(-?%d[%d.]*)",
-        gear_lever = "fc_gear_x=(-?%d[%d.]*)_(-?%d[%d.]*)",
-        nled = "fc_nled",
-        odometer = "fc_om_x=(-?%d[%d.]*)",
-        pled = "fc_pled",
-        speedo = "fc_speedo_y=(-?%d[%d.]*)_(-?%d[%d.]*)",
-        throttle = "fc_th_(%w)=(%d[%d.]*)", -- Only positive
-        unit = "unit=(%w+)_max=(-?%d[%d.]*)"
-    },
     veh_data = {}
 }
 
@@ -70,21 +103,27 @@ function GetNameOfVehicleModel(model)
                                CVehicleModelInfo[tonumber(model)] + 0x32)) or ""
 end
 
-function GetComponentData(veh, prefix)
-    log.debug("Searching for component data " .. prefix)
-    for _, comp in ipairs(mad.get_all_vehicle_components(veh)) do
-        local comp_name = comp.name:gsub(",",".")
-        local match = string.match(comp_name, prefix)
-        if match then
-            local t = {match}
-            local data = ""
+function FindComponentData(comp_name,data_pattern)
+    local comp_name = comp_name:gsub(",",".")
+    local _,_,data = string.find(comp_name, data_pattern)
 
-            for k, v in ipairs(t) do data = data .. " " .. v end
+    if data then
+        return data
+    end
+    return nil
+end
 
-            log.debug(string.format("Found %d component data (%s - %s)", #t,
-            comp_name, data))
-            return comp, {string.match(comp_name, prefix)}
+function GetValue(script_val,default_value,comp_name,model_data_prefix)
+    if IGNORE_MODEL_VALUES then
+        return script_val or default_value
+    else
+        local rtn_val = FindComponentData(comp_name,model_data_prefix)
+
+        if type(default_value) == "number" then
+            rtn_val = tonumber(rtn_val)
         end
+        
+        return rtn_val or default_value
     end
 end
 
@@ -92,6 +131,7 @@ end
 function GetRealisticSpeed(veh, wheel)
 
     if not doesVehicleExist(veh) then return end
+    -- if isCarStopped(veh) then return 0 end
 
     local pVeh = getCarPointer(veh)
     local realisticSpeed = 0
@@ -138,327 +178,184 @@ function GetRealisticSpeed(veh, wheel)
     return realisticSpeed
 end
 
-function FindAnimations(parent_comp)
-    local data = {}
+function FindChildData(parent_comp,data_prefix,script_value,default_value)
 
-    log.debug("Searching for animations in " .. parent_comp.name)
-    for _, child_comp in ipairs(parent_comp:get_child_components()) do
-        if child_comp.name == tmain.name.anim then
-            for _, child_child_comp in ipairs(child_comp:get_child_components()) do
-
-                local file, anim = string.match(child_child_comp.name,
-                                                "([^_]+)_([^_]+)")
-
-                table.insert(data, file)
-                table.insert(data, anim)
-                log.debug("Found animation " .. anim)
-            end
-            return data
-        end
+    if IGNORE_MODEL_VALUES then
+        return script_value
     end
-    return {}
-end
-
-function FindChildData(parent_comp, pattern)
-
-    log.debug("Searching for pattern in " .. parent_comp.name)
 
     for _, child_comp in ipairs(parent_comp:get_child_components()) do
         child_comp_name = child_comp.name:gsub(",",".")
-        local match = string.match(child_comp_name, pattern)
-        print(child_comp_name)
-        if match then
-            return {match}
+        local _,_,data = string.find(child_comp_name, data_prefix)
+        if data then
+            return data
         end
     end
-    return {}
+    return default_value
 end
-
 
 function DoesVehicleExist(veh, name)
     if doesVehicleExist(veh) then
         return true
     else
-        log.debug("")
-        log.debug(string.format("Vehicle doesn't exist. Quiting process %s",
-                                name))
         return false
     end
 end
 
-function ConvertCheckDataType(data, dtype, index)
-    if data == nil then return nil end
-    if data[index] == nil then return nil end
-
-    if dtype == "number" then
-        data[index] = tonumber(data[index])
-        if type(data[index]) == "number" then
-            return data[index]
-        else
-            return nil
-        end
-    end
-
-    if dtype == "string" then
-        data[index] = tostring(data[index])
-        if type(data[index]) == "string" then
-            return data[index]
-        else
-            return nil
-        end
-    end
-
-    return nil
-
+function LogProcessComponent(comp_name)
+    log.debug(string.format("Processing component %s",comp_name))
 end
+
+function SetMaterialColor(comp,r,g,b,a)
+    for _, obj in ipairs(comp:get_objects()) do
+        for _, mat in ipairs(obj:get_materials()) do
+            mat:set_color(r,g,b,a)
+        end
+    end
+end
+
 --------------------------------------------------
 -- Component specific stuff
 
-function FunctionalChain(veh, prefix)
+function FunctionalChain(veh,comp)
 
-    local chain, tdata = GetComponentData(veh, prefix)
     local speed = nil
     local chain_table = {}
-
-    local time = ConvertCheckDataType(tdata, "number", 1)
-    if not time then return end
-
-    for _, comp in ipairs(chain:get_child_components()) do
+    local time = GetValue(CHAIN_TIME_FACTOR,5,comp.name,"_ms(%w+)")
+    
+    for _, comp in ipairs(comp:get_child_components()) do
         table.insert(chain_table, comp)
     end
 
-    log.debug("Processing component " .. chain.name)
+    LogProcessComponent(comp.name)
     while true do
 
-        if not DoesVehicleExist(veh, prefix) then return end
+        if not DoesVehicleExist(veh, comp.name) then return end
 
         speed = GetRealisticSpeed(veh, 1)
 
+        rotate_chain = function(i)
+            if not DoesVehicleExist(veh, comp.name) then return end
+
+            for j = 1, #chain_table, 1 do
+                if chain_table[i].name == chain_table[j].name then
+                    chain_table[j]:set_alpha(255)
+                else
+                    chain_table[j]:set_alpha(0)
+                end
+            end
+            wait(time / math.abs(speed))
+        end
+        
         if speed >= 1 then
             for i = 1, #chain_table, 1 do
-                if not DoesVehicleExist(veh, prefix) then return end
-
-                for j = 1, #chain_table, 1 do
-                    if chain_table[i].name == chain_table[j].name then
-                        chain_table[j]:set_alpha(255)
-                    else
-                        chain_table[j]:set_alpha(0)
-                    end
-                end
-                wait(time / math.abs(speed))
+                rotate_chain(i)
             end
         end
         if speed <= -1 then
             for i = #chain_table, 1, -1 do
-                if not DoesVehicleExist(veh, prefix) then return end
-
-                for j = 1, #chain_table, 1 do
-                    if chain_table[i].name == chain_table[j].name then
-                        chain_table[j]:set_alpha(255)
-                    else
-                        chain_table[j]:set_alpha(0)
-                    end
-                end
-                wait(time / math.abs(speed))
+                rotate_chain(i)
             end
         end
         wait(0)
     end
 end
 
-function FunctionalGearLever(veh, prefix)
+function FunctionalGearLever(veh, comp)
 
-    local gear_lever, tdata = GetComponentData(veh, prefix)
+    local normal_angle = GetValue(GEAR_LEVER_NORMAL_ANGLE,15,comp.name,"_an(%w+)")
+    local offset_angle = GetValue(GEAR_LEVER_OFFSET_ANGLE,15,comp.name,"_ao(%w+)")
+    local wait_time    = GetValue(GEAR_LEVER_WAIT_TIME,1,comp.name,"_ms(%w+)")
 
-    local angle1 = ConvertCheckDataType(tdata, "number", 1)
-    if not angle1 then return end
+    local matrix = comp.modeling_matrix
+    local current_gear = -1
 
-    local angle2 = ConvertCheckDataType(tdata, "number", 2)
-    if not angle2 then return end
-
-    local matrix = gear_lever.modeling_matrix
-    local current_gear = getCarCurrentGear(veh)
-
-    matrix:rotate_x(tonumber(angle1))
-
-    local anims = FindAnimations(gear_lever)
-
-    if anims[1] ~= nil then
-        requestAnimation(anims[1])
-        loadAllModelsNow()
-    end
-
-    log.debug("Processing component " .. gear_lever.name)
+    LogProcessComponent(comp.name)
     while true do
 
-        if not DoesVehicleExist(veh, prefix) then return end
+        if not DoesVehicleExist(veh, comp.name) then return end
 
-        if getCarCurrentGear(veh) > current_gear then
-            current_gear = getCarCurrentGear(veh)
+        local gear = getCarCurrentGear(veh)
+        if gear ~= current_gear then
+            local v = 1
 
-            if anims[1] ~= nil then
-                local driver = getDriverOfCar(veh)
-
-                if doesCharExist(driver) and isCharInCar(driver, veh) then
-                    taskPlayAnimSecondary(driver, anims[2], anims[1], 4.0,
-                                          false, false, false, false, -1)
-                end
+            if current_gear > gear then
+                v = -1
             end
+            
+            current_gear = gear
 
-            local temp1 = tonumber(angle1)
-            local temp2 = temp1 - tonumber(angle2)
+            local change_angle = normal_angle - offset_angle*v
 
-            for i = temp1, temp2, -3 do
+            for i = normal_angle, change_angle, 3*v do
                 matrix:rotate_x(i)
-                wait(1)
+                wait(wait_time)
             end
-            for i = temp2, temp1, 3 do
+            for i = change_angle, normal_angle, 3*v do
                 matrix:rotate_x(i)
-                wait(1)
-            end
-        end
-
-        if getCarCurrentGear(veh) < current_gear then
-            current_gear = getCarCurrentGear(veh)
-
-            if anims[3] ~= nil then
-                local driver = getDriverOfCar(veh)
-
-                if doesCharExist(driver) and isCharInCar(driver, veh) then
-                    taskPlayAnimSecondary(driver, anims[4], anims[3], 4.0,
-                                          false, false, false, false, -1)
-                end
-            end
-
-            local temp1 = tonumber(angle1)
-            local temp2 = temp1 + tonumber(angle2)
-
-            for i = temp1, temp2, 3 do
-                matrix:rotate_x(i)
-                wait(1)
-            end
-            for i = temp2, temp1, -3 do
-                matrix:rotate_x(i)
-                wait(1)
+                wait(wait_time)
             end
         end
 
         wait(0)
     end
-    removeAnimation(anims[1])
-    removeAnimation(anims[3])
 end
 
-function FunctionalNeutralLed(veh, prefix)
+function FunctionalNeutralLed(veh, comp)
 
-    local nled = mad.get_vehicle_component(veh, prefix)
-
-    if not nled then return end
-
-    log.debug("Processing component " .. nled.name)
+    LogProcessComponent(comp.name)
     while true do
-
         if not DoesVehicleExist(veh, prefix) then return end
 
         if isCarEngineOn(veh) then
-
             if getCarCurrentGear(veh) == 0 then
-
-                for _, obj in ipairs(nled:get_objects()) do
-                    for _, mat in ipairs(obj:get_materials()) do
-                        mat:set_color(0,200,0,255)
-                    end
-                end
+                SetMaterialColor(comp,0,200,0,255)
             else
-                for _, obj in ipairs(nled:get_objects()) do
-                    for _, mat in ipairs(obj:get_materials()) do
-                        mat:set_color(0,25,0,255)
-                    end
-                end
+                SetMaterialColor(comp,0,25,0,255)
             end
         else
-            for _, obj in ipairs(nled:get_objects()) do
-                for _, mat in ipairs(obj:get_materials()) do
-                    mat:set_color(0,25,0,255)
-                end
-            end
+            SetMaterialColor(comp,0,25,0,255)
         end
-
         wait(0)
     end
 end
 
-function FunctionalDamageLed(veh, prefix)
+function FunctionalDamageLed(veh, comp)
 
-    local model = getCarModel(veh)
-    local dled = mad.get_vehicle_component(veh, prefix)
-
-    if not dled then return end
-
-    log.debug("Processing component " .. dled.name)
+    LogProcessComponent(comp.name)
     while true do
-
         if not DoesVehicleExist(veh, prefix) then return end
 
         if getCarHealth(veh) < 650 and isCarEngineOn(veh) then
-            for _, obj in ipairs(dled:get_objects()) do
-                for _, mat in ipairs(obj:get_materials()) do
-                    mat:set_color(255,30,21,255)
-                end
-            end
+            SetMaterialColor(comp,255,30,21,255)
         else
-            for _, obj in ipairs(dled:get_objects()) do
-                for _, mat in ipairs(obj:get_materials()) do
-                    mat:set_color(60, 20, 20, 200)
-                end
-            end
+            SetMaterialColor(comp,60,20,20,200)
         end
         wait(0)
     end
 end
 
-function FunctionalPowerLed(veh, prefix)
+function FunctionalPowerLed(veh, comp)
 
-    local model = getCarModel(veh)
-    local pled = mad.get_vehicle_component(veh, prefix)
-
-    if not pled then return end
-
-    log.debug("Processing component " .. pled.name)
+    LogProcessComponent(comp.name)
     while true do
-
         local speed = GetRealisticSpeed(veh, 1)
-
         if not DoesVehicleExist(veh, prefix) then return end
 
         if isCarEngineOn(veh) then
             if speed >= 100 then
-                for _, obj in ipairs(pled:get_objects()) do
-                    for _, mat in ipairs(obj:get_materials()) do
-                        mat:set_color(240, 0, 0, 255)
-                    end
-                end
+                SetMaterialColor(comp,240,0,0,255)
             else
-                for _, obj in ipairs(pled:get_objects()) do
-                    for _, mat in ipairs(obj:get_materials()) do
-                        mat:set_color(0, 200, 0, 255)
-                    end
-                end
+                SetMaterialColor(comp,0,200,0,255)
             end
         else
-            for _, obj in ipairs(pled:get_objects()) do
-                for _, mat in ipairs(obj:get_materials()) do
-                    mat:set_color(50, 50, 50, 255)
-                end
-            end
+            SetMaterialColor(comp,50,50,50,255)
         end
-
         wait(0)
     end
 end
 
-function UpdateOdometerNumber(number, veh, comp, angle, prefix, child_comps,
-                              shown_angle)
+function UpdateOdometerNumber(number,angle,child_comps,shown_angle)
 
     if number > 999999 then number = 999999 end
 
@@ -510,13 +407,9 @@ function UpdateOdometerNumber(number, veh, comp, angle, prefix, child_comps,
 
 end
 
-function FunctionalOdometer(veh, prefix)
+function FunctionalOdometer(veh,comp)
 
-    local comp, tdata = GetComponentData(veh, prefix)
-
-    local angle = ConvertCheckDataType(tdata, "number", 1)
-
-    if not angle then return end
+    local rotation_angle = GetValue(ODOMETER_ROTATION_ANGLE,36,comp.name,"_ax(%w+)")
 
     local current_number = 0
     local new_number = math.random(10000, 200000)
@@ -533,116 +426,83 @@ function FunctionalOdometer(veh, prefix)
     if isThisModelABike(model) then
         offset = 0x750
     else
-        if isThisModelACar(model) then offset = 0x828 end
+        if isThisModelACar(model) then 
+            offset = 0x828 
+        end
     end
 
-    log.debug("Processing component " .. comp.name)
+    LogProcessComponent(comp.name)
     while true do
-
         if not DoesVehicleExist(veh, prefix) or offset == nil then return end
 
-        local val = math.abs(math.floor(memory.getfloat(
-                                            getCarPointer(veh) + offset) / 200))
+        local val = math.abs(math.floor(memory.getfloat(getCarPointer(veh) + offset) / 200))
         new_number = new_number + math.abs(bac - val)
         bac = val
 
         if current_number ~= new_number then
             current_number = new_number
-            UpdateOdometerNumber(current_number, veh, comp, angle, prefix,
-                                 child_comps, shown_angle)
+            UpdateOdometerNumber(current_number,rotation_angle,child_comps,shown_angle)
         end
         wait(0)
     end
 end
 
-function FunctionalClutch(veh, prefix)
+function FunctionalClutch(veh, comp)
 
-    local clutch, tdata = GetComponentData(veh, prefix)
-
-    local angle = ConvertCheckDataType(tdata, "number", 1)
-
-    if not angle then return end
-
-    local matrix = clutch.modeling_matrix
+    local rotation_angle = GetValue(CLUTCH_ROTATION_ANGLE,17,comp.name,"_az(%w+)")
+    local wait_time = GetValue(CLUTCH_WAIT_TIME,1,comp.name,"_ms(%w+)")
+    
+    local matrix = comp.modeling_matrix
     local current_gear = 0
-    local anims = FindAnimations(clutch)
 
-    if anims[1] ~= nil then
-        requestAnimation(anims[1])
-        loadAllModelsNow()
-    end
-
-    log.debug("Processing component " .. clutch.name)
+    LogProcessComponent(comp.name)
     while true do
         if not DoesVehicleExist(veh, prefix) then return end
 
         if getCarCurrentGear(veh) ~= current_gear then
             current_gear = getCarCurrentGear(veh)
-
-            if anims[1] ~= nil then
-                local driver = getDriverOfCar(veh)
-
-                if doesCharExist(driver) and isCharInCar(driver, veh) then
-                    taskPlayAnimSecondary(driver, anims[2], anims[1], 4.0,
-                                          false, false, false, false, -1)
-                end
-            end
-
-            for i = 0, angle / 4, 1 do
+            for i = 0, rotation_angle / 4, 1 do
                 matrix:rotate_z(i * 4)
-                wait(0.1)
+                wait(wait_time)
             end
-
-            for i = angle / 4, 0, -1 do
+            for i = rotation_angle / 4, 0, -1 do
                 matrix:rotate_z(i * 4)
-                wait(0.1)
+                wait(wait_time)
             end
-
         end
-
         wait(0)
     end
-    if anims[1] ~= nil then removeAnimation(anims[1]) end
 end
 
-function FunctionalThrottle(veh, prefix)
+function FunctionalThrottle(veh, comp)
 
-    local comp, tdata = GetComponentData(veh, prefix)
+    local rotate_axis = GetValue(THROTTLE_ROTATION_AXIS,"x",comp.name,"_(%w)=")
+    local rotation = GetValue(THROTTLE_ROTATION_VALUE,50,comp.name,"=(-?%d[%d.]*)")
+    local wait_time = GetValue(THROTTLE_WAIT_TIME,100,comp.name,"_ms(%d+)")
 
-    if not comp or not tdata then return end
+    local rotx, roty, rotz
 
-    tdata[2] = tonumber(tdata[2])
-
-    local rotx = FindChildData(comp, "rotx=(-?%d[%d.]*)")
-    local roty = FindChildData(comp, "roty=(-?%d[%d.]*)")
-    local rotz = FindChildData(comp, "rotz=(-?%d[%d.]*)")
-
-    if rotx[1] == nil and tdata[1] ~= "x"  then
-        rotx[1] = 0
+    rotation = rotation/20 -- manual test
+    if rotate_axis ~= "x" then
+        rotx = FindChildData(comp, "rotx=(-?%d[%d.]*)",THROTTLE_ROTATION_ROT_X,50)
+    else
+        rotx = rotation
     end
-
-    if roty[1] == nil and tdata[1] ~= "y" then
-        roty[1] = 0
+    if rotate_axis ~= "y" then
+        roty = FindChildData(comp, "roty=(-?%d[%d.]*)",THROTTLE_ROTATION_ROT_Y,0)
+    else
+        roty = rotation
     end
-
-    if rotz[1] == nil and tdata[1] ~= "z" then
-        rotz[1] = 0
+    if rotate_axis ~= "z" then
+        rotz = FindChildData(comp, "rotz=(-?%d[%d.]*)",THROTTLE_ROTATION_ROT_Z,0)
+    else
+        rotz = rotation
     end
 
     local matrix = comp.modeling_matrix
     local current_state = 0
-    local anims = FindAnimations(comp)
 
-    if anims[1] ~= nil then
-        requestAnimation(anims[1])
-        if anims[2] ~= nil then
-            requestAnimation(anims[2])
-            loadAllModelsNow()
-        end
-        loadAllModelsNow()
-    end
-
-    log.debug("Processing component " .. comp.name)
+    LogProcessComponent(comp.name)
 
     while true do
         if not DoesVehicleExist(veh, prefix) then return end
@@ -653,104 +513,75 @@ function FunctionalThrottle(veh, prefix)
         if fGas_state ~= current_state then -- fGas_state
             current_state = fGas_state
 
-            if gear < 1 then
+            if gear >= 1 then
+                local cur_rotx = rotx or rotation
+                local cur_roty = roty or rotation
+                local cur_rotz = rotz or rotation
+
+                local rotate_throttle = function(i)
+                    if rotate_axis == "x" then
+                        cur_rotx = cur_rotx + i
+                    end
+                    if rotate_axis == "y" then
+                        cur_roty = cur_roty + i
+                    end
+                    if rotate_axis == "z" then
+                        cur_rotz = cur_rotz + i
+                    end
+
+                    matrix:rotate(cur_rotx,cur_roty,cur_rotz)
+                    wait(wait_time)
+                end
+
+                if fGas_state == 1 then         
+                    for i=0,rotation,1 do
+                        rotate_throttle(i)
+                    end
+                else
+                    for i=rotation,0,-1 do
+                        rotate_throttle(i)
+                    end
+                end
+
+                while math.floor(memory.getfloat(getCarPointer(veh)+0x49C)) == fGas_state do
+                    wait(0)
+                end
+            else
                 current_state = 0
-                goto break_loop
-            end
-
-            if anims[1] ~= nil then
-                local driver = getDriverOfCar(veh)
-
-                if doesCharExist(driver) and isCharInCar(driver, veh) then
-                    taskPlayAnimSecondary(driver, anims[2], anims[1], 4.0,
-                                          false, false, false, false, -1)
-                end
-            end
-
-            local cur_rotx = rotx[1] or tdata[2]
-            local cur_roty = roty[1] or tdata[2]
-            local cur_rotz = rotz[1] or tdata[2]
-
-            if fGas_state == 1 then    
-                         
-                for i=0,tdata[2],5 do
-
-                    if tdata[1] == "x" then
-                        cur_rotx = cur_rotx + i
-                    else
-                        if tdata[1] == "y" then
-                            cur_roty = cur_roty + i
-                        else
-                            if tdata[1] == "z" then
-                                cur_rotz = cur_rotz + i
-                            end
-                        end
-                    end
-                    matrix:rotate(cur_rotx,cur_roty,cur_rotz)
-                    wait(0)
-                end
-           else
-                for i=tdata[2],0,-5 do
-
-                    if tdata[1] == "x" then
-                        cur_rotx = cur_rotx + i
-                    else
-                        if tdata[1] == "y" then
-                            cur_roty = cur_roty + i
-                        else
-                            if tdata[1] == "z" then
-                                cur_rotz = cur_rotz + i
-                            end
-                        end
-                    end
-                    matrix:rotate(cur_rotx,cur_roty,cur_rotz)
-                    wait(0)
-                end
-           end
-
-            while math.floor(memory.getfloat(getCarPointer(veh)+0x49C)) == fGas_state do
-                wait(0)
             end
         end
 
-        ::break_loop::
-
         wait(0)
     end
-    if anims[1] ~= nil then removeAnimation(anims[1]) end
 end
 
-function FunctionalSpeedometer(veh, prefix)
+function FunctionalSpeedometer(veh, comp)
 
-    local comp, tdata = GetComponentData(veh, prefix)
+    local angle_start = GetValue(SPEEDOMETER_ANGLE_START,0,comp.name,"_ay=(-?%d[%d.]*)")
+    local angle_end = GetValue(SPEEDOMETER_ANGLE_END,180,comp.name,"_(-?%d[%d.]*)")
 
-    if not comp then return end
     local matrix = comp.modeling_matrix
 
-    local cdata = FindChildData(comp, tmain.name.unit)
+    local unit = FindChildData(comp, "unit=(%w+)",SPEEDOMETER_DEFAULT_UNIT,"mph")
+    local speedm_max = GetValue(SPEEDOMETER_ANGLE_END,180,comp.name,"_m(%d+)")
 
-    log.debug("Processing component " .. comp.name)
-
-    local low = tdata[1]
-    local high = tdata[2]
-    local unit = cdata[1] or "mph"
-    local speedm_max = tonumber(cdata[2]) or 120
-    local total_rot = math.abs(high) + math.abs(low)
+    local total_rot = math.abs(angle_end) + math.abs(angle_start)
     local rotation = 0
 
+    LogProcessComponent(comp.name)
     while true do
         if not DoesVehicleExist(veh, prefix) then return end
 
-        local speed = GetRealisticSpeed(veh, 1) - 0.2
+        local speed = GetRealisticSpeed(veh, 1)
 
         if speed < 0 then
-            speed = GetRealisticSpeed(veh, 0) - 0.2
+            speed = GetRealisticSpeed(veh, 0)
         end
 
         if unit == "mph" then speed = speed / 1.6 end
         if speed > speedm_max then speed = speedm_max end
 
-        rotation = math.floor(total_rot / speedm_max * speed + low)
+        rotation = math.floor(total_rot / speedm_max * speed + angle_start)
 
         matrix:rotate_y(rotation)
 
@@ -758,51 +589,96 @@ function FunctionalSpeedometer(veh, prefix)
     end
 end
 
-function FunctionalFrontBrake(veh, prefix)
+function FunctionalRPMmeter(veh, comp)
 
-    local comp, tdata = GetComponentData(veh, prefix)
-
-    local angle = ConvertCheckDataType(tdata, "number", 1)
-
-    if not angle then return end
+    local angle_start = GetValue(RPMMETER_ANGLE_START,-30,comp.name,"_ay=(-?%d+)")
+    local angle_end = GetValue(RPMMETER_ANGLE_END,205,comp.name,"_(-?%d+)")
 
     local matrix = comp.modeling_matrix
-    local anims = FindAnimations(comp)
-    local pveh = getCarPointer(veh)
 
-    if anims[1] ~= nil then
-        requestAnimation(anims[1])
-        loadAllModelsNow()
+    LogProcessComponent(comp.name)
+
+    local meter_max = GetValue(RPMMETER_MAX_RPM,10,comp.name,"_m(%d+)")
+    local total_rot = math.abs(angle_end) + math.abs(angle_start)
+    local cur_rpm = 0.6
+    local cur_speed = 0
+    local gear = 0
+
+    local rotate_rpm_neddle = function()
+        if cur_rpm < 0.6 then cur_rpm = 0.6 end
+        matrix:rotate_y((total_rot / meter_max * cur_rpm + angle_start))
     end
 
-    log.debug("Processing component " .. comp.name)
     while true do
         if not DoesVehicleExist(veh, prefix) then return end
 
-        if memory.getfloat(pveh + 0x4A0) == 1 then -- bIsHandbrakeOn 
-            if anims[1] ~= nil then
-                local driver = getDriverOfCar(veh)
-
-                if doesCharExist(driver) and isCharInCar(driver, veh) then
-                    taskPlayAnimSecondary(driver, anims[2], anims[1], 4.0,
-                                          false, false, false, false, -1)
-                end
+        local rea_speed = GetRealisticSpeed(veh)
+               
+        local fGas_state = math.floor(memory.getfloat(getCarPointer(veh)+0x49C))
+        if fGas_state > 0 then
+            if rea_speed > cur_speed then
+                cur_speed = rea_speed
+                cur_rpm = cur_rpm + (fTimeStep[0]/ 1.6666) * (fGas_state / 6.0)
             end
+        else
+            cur_rpm = cur_rpm - (fTimeStep[0]/ 1.6666) * 0.3
+            cur_speed = 0
+        end
+
+        if gear < getCarCurrentGear(veh) then
+            gear = getCarCurrentGear(veh)
+
+            for i=1,10,1 do
+                cur_rpm = cur_rpm - 0.1
+                rotate_rpm_neddle()
+                wait(0)
+            end
+            wait(100)
+        end
+
+        if cur_rpm > meter_max then 
+            for i=1,2,1 do
+                cur_rpm = cur_rpm - 0.1
+                rotate_rpm_neddle()
+                wait(0)
+            end
+            cur_rpm = meter_max 
+        end
+
+        rotate_rpm_neddle()
+
+        wait(0)
+    end
+end
+
+function FunctionalFrontBrake(veh, comp)
+
+    local offset_angle = GetValue(FRONT_BRAKE_OFFSET_ANGLE,15,comp.name,"_ax(-?%d[%d.]*)")
+    local wait_time = GetValue(FRONT_BRAKE_WAIT_TIME,1,comp.name,"_ms(%d)")
+
+    local matrix = comp.modeling_matrix
+    local pveh = getCarPointer(veh)
+
+    LogProcessComponent(comp.name)
+    while true do
+        if not DoesVehicleExist(veh, prefix) then return end
+
+        if memory.getfloat(pveh + 0x4A0) == 1 then -- bIsHandbrakeOn
 
             local temp = 1
 
-            if angle < 0 then temp = -1 end
+            if offset_angle < 0 then temp = -1 end
 
-            for i = 0, angle / 4, temp do
+            for i = 0, offset_angle / 4, temp do
                 matrix:rotate_z(i * 4)
-                wait(0.1)
+                wait(wait_time)
             end
 
             while memory.getfloat(pveh + 0x4A0) == 1 do wait(0) end
 
-            for i = angle / 4, 0, (temp * -1) do
+            for i = offset_angle / 4, 0, (temp * -1) do
                 matrix:rotate_z(i * 4)
-                wait(0.1)
+                wait(wait_time)
             end
 
         end
@@ -811,54 +687,36 @@ function FunctionalFrontBrake(veh, prefix)
     end
 end
 
-function FunctionalRearBrake(veh, prefix)
+function FunctionalRearBrake(veh, comp)
 
-    local comp, tdata = GetComponentData(veh, prefix)
-
-    local angle = ConvertCheckDataType(tdata, "number", 1)
-
-    if not angle then return end
+    local offset_angle = GetValue(REAR_BRAKE_OFFSET_ANGLE,15,comp.name,"_ax(-?%d[%d.]*)")
+    local wait_time = GetValue(REAR_BRAKE_WAIT_TIME,1,comp.name,"_ms(%d)")
 
     local matrix = comp.modeling_matrix
-    local anims = FindAnimations(comp)
     local pveh = getCarPointer(veh)
 
-    if anims[1] ~= nil then
-        requestAnimation(anims[1])
-        loadAllModelsNow()
-    end
-
-    log.debug("Processing component " .. comp.name)
+    LogProcessComponent(comp.name)
     while true do
         if not DoesVehicleExist(veh, prefix) then return end
 
         if bit.band(memory.read(pveh + 0x428, 2), 32) == 32 then -- m_fBrakePedal
 
-            if anims[1] ~= nil then
-                local driver = getDriverOfCar(veh)
-
-                if doesCharExist(driver) and isCharInCar(driver, veh) then
-                    taskPlayAnimSecondary(driver, anims[2], anims[1], 4.0,
-                                          false, false, false, false, -1)
-                end
-            end
-
             local temp = 1
 
-            if angle < 0 then temp = -1 end
+            if offset_angle < 0 then temp = -1 end
 
-            for i = 0, angle/2, temp do
+            for i = 0, offset_angle/2, temp do
                 matrix:rotate_x(i*2)
-                wait(0.1)
+                wait(wait_time)
             end
 
             while bit.band(memory.read(pveh + 0x428, 2), 32) == 32 do
                 wait(0)
             end
 
-            for i = angle/2, 0, (temp * -1) do
+            for i = offset_angle/2, 0, (temp * -1) do
                 matrix:rotate_x(i*2)
-                wait(0.1)
+                wait(wait_time)
             end
 
         end
@@ -870,8 +728,9 @@ end
 function HighlightComponent(veh, prefix)
     while true do
         for i, comp in ipairs(mad.get_all_vehicle_components(veh)) do
-            if string.match(comp.name, prefix) then
-                for _, obj in ipairs(child:get_objects()) do
+            if string.find(comp.name, prefix) ~= nil then
+                
+                for _, obj in ipairs(comp:get_objects()) do
                     for i, mat in ipairs(obj:get_materials()) do
                         mat:set_color(0, 255, 0, 255)
                     end
@@ -890,48 +749,45 @@ end
 
 --------------------------------------------------
 
+local find_callback  = 
+{
+    ["fc_chain"]     = FunctionalChain,
+    ["fc_cl"]        = FunctionalClutch,
+    ["fc_dled"]      = FunctionalDamageLed,
+    ["fc_fbrake"]    = FunctionalFrontBrake,
+    ["fc_gear"]      = FunctionalGearLever,
+    ["fc_nled"]      = FunctionalNeutralLed,
+    ["fc_pled"]      = FunctionalPowerLed,
+    ["fc_om"]        = FunctionalOdometer,
+    ["fc_sm"]        = FunctionalSpeedometer,
+    ["fc_th"]        = FunctionalThrottle,
+    ["fc_rbrake"]    = FunctionalRearBrake,
+    ["fc_rpm"]       = FunctionalRPMmeter,
+}
+
+
 function main()
-    -- lua_thread.create(ClearNonExistentVehicleData)
+
     while true do
-        for i, veh in ipairs(getAllVehicles()) do
+        for _, veh in ipairs(getAllVehicles()) do
             if doesVehicleExist(veh) and tmain.veh_data[veh] == nil then
                 tmain.veh_data[veh] = veh
                 local model = getCarModel(veh)
                 log.debug("")
-                log.debug(string.format("Found vehicle %s (%d) %d",
-                                        GetNameOfVehicleModel(model), model,
-                                        getCarPointer(veh)))
+                log.debug(string.format("Found vehicle %s (%d) %d",GetNameOfVehicleModel(model), model,getCarPointer(veh)))
 
-                lua_thread.create(FunctionalChain, veh, tmain.name.chain)
-                lua_thread.create(FunctionalClutch, veh, tmain.name.clutch)
-                lua_thread.create(FunctionalDamageLed, veh, tmain.name.dled)
-                lua_thread.create(FunctionalGearLever, veh,
-                                  tmain.name.gear_lever)
-                lua_thread.create(FunctionalNeutralLed, veh, tmain.name.nled)
-                lua_thread.create(FunctionalOdometer, veh, tmain.name.odometer)
-                lua_thread.create(FunctionalPowerLed, veh, tmain.name.pled)
-                lua_thread.create(FunctionalFrontBrake, veh, tmain.name.fbrake)
-                lua_thread.create(FunctionalRearBrake, veh, tmain.name.rbrake)
-                -- lua_thread.create(HighlightComponent, veh, tmain.name.chain)
-                lua_thread.create(FunctionalSpeedometer, veh, tmain.name.speedo)
-                lua_thread.create(FunctionalThrottle, veh, tmain.name.throttle)
+                for _, comp in ipairs(mad.get_all_vehicle_components(veh)) do
+                    local comp_name = comp.name
+
+                    for name,func in pairs(find_callback) do
+                        if string.find(comp_name,name) then
+                            log.debug(string.format("Found '%s' in '%s'",name,comp_name))
+                            lua_thread.create(func,veh,comp)
+                        end
+                    end
+                end
             end
         end
-        -- if isCharInAnyCar(PLAYER_PED) then
-        --     car = getCarCharIsUsing(PLAYER_PED)
-        --     -- comp = mad.get_vehicle_component(car,"f_gas_ax=75")
-        --     -- print(comp.name)
-        --     -- local matrix = comp.modeling_matrix
-        --     -- rotation = 0
-        --     -- while true do
-        --     --     matrix:rotate_x(rotation)
-        --     --     rotation = rotation + 1
-        --     --     wait(1)
-        --     -- end
-        --     speed = getCarSpeed(car)
-        --     rea_speed = GetRealisticSpeed(car)
-        --     printString(tostring(math.floor(speed)) .. "   " .. tostring(math.floor(rea_speed)),100)
-        -- end
         wait(0)
     end
 end
