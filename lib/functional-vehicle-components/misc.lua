@@ -5,9 +5,15 @@ function module.Chain(veh,comp)
     local speed = nil
     local chain_table = {}
     local time = futil.GetValue(CHAIN_TIME_FACTOR,5,comp.name,"_ms(%d+)")
-    
+
     for _, comp in ipairs(comp:get_child_components()) do
         table.insert(chain_table, comp)
+    end
+
+    rotate_chain = function(i)
+        if not doesVehicleExist(veh) then return end
+        futil.HideChildsExcept(chain_table,i)
+        wait(time / math.abs(speed))
     end
 
     flog.ProcessingComponent(comp.name)
@@ -16,12 +22,6 @@ function module.Chain(veh,comp)
         if not doesVehicleExist(veh) then return end
 
         speed = futil.GetRealisticSpeed(veh, 1)
-
-        rotate_chain = function(i)
-            if not doesVehicleExist(veh) then return end
-            futil.HideChildsExcept(chain_table,i)
-            wait(time / math.abs(speed))
-        end
         
         if speed >= 1 then
             for i = 1, #chain_table, 1 do
@@ -39,8 +39,8 @@ end
 
 function module.GearLever(veh, comp)
 
-    local normal_angle = futil.GetValue(GEAR_LEVER_NORMAL_ANGLE,15,comp.name,"_an(%w+)")
-    local offset_angle = futil.GetValue(GEAR_LEVER_OFFSET_ANGLE,15,comp.name,"_ao(%w+)")
+    local normal_angle = futil.GetValue(GEAR_LEVER_NORMAL_ANGLE,15,comp.name,"_ax(%w+)")
+    local offset_angle = futil.GetValue(GEAR_LEVER_OFFSET_ANGLE,15,comp.name,"_o(%w+)")
     local wait_time    = futil.GetValue(GEAR_LEVER_WAIT_TIME,1,comp.name,"_ms(%d+)")
 
     local matrix = comp.modeling_matrix
@@ -108,7 +108,7 @@ function module.Throttle(veh, comp)
 
     local rotate_axis = futil.GetValue(THROTTLE_ROTATION_AXIS,"x",comp.name,"_(%w)=")
     local rotation = futil.GetValue(THROTTLE_ROTATION_VALUE,50,comp.name,"=(-?%d[%d.]*)")
-    local wait_time = futil.GetValue(THROTTLE_WAIT_TIME,100,comp.name,"_ms(%d+)")
+    local wait_time = futil.GetValue(THROTTLE_WAIT_TIME,50,comp.name,"_ms(%d+)")
 
     local rotx, roty, rotz
 
@@ -134,6 +134,22 @@ function module.Throttle(veh, comp)
 
     flog.ProcessingComponent(comp.name)
 
+    local rotate_throttle = function(i,cur_rotx,cur_roty,cur_rotz)
+        if rotate_axis == "x" then
+            cur_rotx = cur_rotx + i
+        end
+        if rotate_axis == "y" then
+            cur_roty = cur_roty + i
+        end
+        if rotate_axis == "z" then
+            cur_rotz = cur_rotz + i
+        end
+
+
+        matrix:rotate(cur_rotx,cur_roty,cur_rotz)
+        wait(wait_time)
+    end
+
     while true do
         if not doesVehicleExist(veh) then return end
 
@@ -148,38 +164,21 @@ function module.Throttle(veh, comp)
                 local cur_roty = roty or rotation
                 local cur_rotz = rotz or rotation
 
-                local rotate_throttle = function(i)
-                    if rotate_axis == "x" then
-                        cur_rotx = cur_rotx + i
-                    end
-                    if rotate_axis == "y" then
-                        cur_roty = cur_roty + i
-                    end
-                    if rotate_axis == "z" then
-                        cur_rotz = cur_rotz + i
-                    end
-
-
-                    matrix:rotate(cur_rotx,cur_roty,cur_rotz)
-                    wait(wait_time)
-                end
-
                 if not doesVehicleExist(veh) then return end
-                if fGas_state == 1 then         
-                    for i=0,rotation,1 do
-                        rotate_throttle(i)
+
+                if fGas_state == 1 then      
+                    for i=0,rotation,0.5 do
+                        rotate_throttle(i,cur_rotx,cur_roty,cur_rotz)
                     end
                 else
-                    for i=rotation,0,1 do
-                        rotate_throttle(i)
+                    for i=rotation,0,-0.5 do
+                        rotate_throttle(i,cur_rotx,cur_roty,cur_rotz)
                     end
                 end
 
                 while doesVehicleExist(veh) and math.floor(memory.getfloat(getCarPointer(veh)+0x49C)) == fGas_state do
                     wait(0)
                 end
-            else
-                current_state = 0
             end
         end
 
@@ -190,7 +189,7 @@ end
 
 function module.FrontBrake(veh, comp)
 
-    local offset_angle = futil.GetValue(FRONT_BRAKE_OFFSET_ANGLE,15,comp.name,"_ax(-?%d[%d.]*)")
+    local offset_angle = futil.GetValue(FRONT_BRAKE_OFFSET_ANGLE,15,comp.name,"_az(-?%d[%d.]*)")
     local wait_time = futil.GetValue(FRONT_BRAKE_WAIT_TIME,1,comp.name,"_ms(%d)")
 
     local matrix = comp.modeling_matrix

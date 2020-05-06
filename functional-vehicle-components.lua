@@ -1,7 +1,7 @@
 script_name('Functional Vehicle Components')
 script_author("Grinch_")
 script_version("1.0-beta")
-script_version_number(2020050601) -- YYYYMMDDNN
+script_version_number(2020050602) -- YYYYMMDDNN
 script_description("Adds more features/ functions to vehicle components")
 script_dependencies("ffi", "Memory", "MoonAdditions", "log")
 script_properties('work-in-pause')
@@ -30,7 +30,7 @@ GEAR_LEVER_WAIT_TIME = 1
 -- FunctionalOdometer
 ODOMETER_ROTATION_ANGLE = 36
 ODOMETER_ROTATION_WAIT_TIME = 25
-ODOMETER_DEFAULT_TYPE = "digital"
+ODOMETER_DEFAULT_TYPE = "analog"
 
 -- FunctionalClutch
 CLUTCH_ROTATION_ANGLE = 17

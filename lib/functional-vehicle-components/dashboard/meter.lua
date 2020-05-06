@@ -1,5 +1,5 @@
 
-function UpdateOdometerNumber(number,angle,child_comps,shown_angle)
+function UpdateOdometerNumber(number,angle,child_comps,shown_angle,default_type)
 
     if number > 999999 then number = 999999 end
 
@@ -26,7 +26,7 @@ function UpdateOdometerNumber(number,angle,child_comps,shown_angle)
                             shown_angle[i] = shown_angle[i] + angle / 16
                             matrix:rotate_x(shown_angle[i])
 
-                            if default_type == "analog" then
+                            if default_type ~= "digital" then
                                 wait(25)
                             end
                         end
@@ -60,7 +60,7 @@ end
 function module.Odometer(veh,comp)
 
     local rotation_angle = futil.GetValue(ODOMETER_ROTATION_ANGLE,36,comp.name,"_ax(%w+)")
-    local default_type = futil.GetValue(ODOMETER_DEFAULT_TYPE,"digital",comp.name,"_(%w+)")
+    local default_type = futil.GetValue(ODOMETER_DEFAULT_TYPE,"analog",comp.name,"_t(%w+)")
 
     local current_number = 0
     local new_number = fgsx.Get(getCarPointer(veh),"odo_val") or 0
