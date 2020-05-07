@@ -64,10 +64,11 @@ function module.HighBeamLed(veh, comp)
                     hb_status = not hb_status
                 end
             end
+
             if hb_status and bit.band(memory.read(pveh + 0x428, 2), 64) ~= 0 and isCarEngineOn(veh) then
-                futil.SetMaterialColor(comp,50,50,255,255)
-            else
                 futil.SetMaterialColor(comp,30,30,60,200)
+            else
+                futil.SetMaterialColor(comp,50,50,255,255)
             end
 
             wait(0)

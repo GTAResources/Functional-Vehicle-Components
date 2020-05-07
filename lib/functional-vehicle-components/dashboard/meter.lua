@@ -108,32 +108,17 @@ function module.Speedometer(veh,comp)
 
     local total_rot = math.abs(angle_end) + math.abs(angle_start)
     local rotation = 0
-    local temp = 0
-
     flog.ProcessingComponent(comp.name)
     
     while true do
         if not doesVehicleExist(veh) then return end
 
-        local speed = futil.GetRealisticSpeed(veh, 1)
-
-        if speed < 0 then
-            speed = futil.GetRealisticSpeed(veh, 0)
-        end
+        local speed = futil.GetRealisticSpeed(veh, 0)
 
         if unit == "mph" then speed = speed / 1.6 end
         if speed > speedm_max then speed = speedm_max end
 
-        temp = math.floor(total_rot / speedm_max * speed + angle_start)
-        
-        if rotation < temp then 
-            rotation = rotation + (temp-rotation)/7
-        end
-
-        if rotation > temp then 
-            rotation = rotation - (rotation-temp)/7
-        end
-
+        rotation = math.floor(total_rot / speedm_max * speed + angle_start)
         matrix:rotate_y(rotation)
 
         wait(0)
