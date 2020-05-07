@@ -1,7 +1,7 @@
 script_name('Functional Vehicle Components')
 script_author("Grinch_")
 script_version("1.0-beta")
-script_version_number(2020050602) -- YYYYMMDDNN
+script_version_number(2020050801) -- YYYYMMDDNN
 script_description("Adds more features/ functions to vehicle components")
 script_dependencies("ffi", "Memory", "MoonAdditions", "log")
 script_properties('work-in-pause')
@@ -153,33 +153,29 @@ local find_callback  =
 
 
 function main()
-    lua_thread.create(IsPlayerNearFuel)
+    -- lua_thread.create(IsPlayerNearFuel)
 
     local veh_data = tmain.gsx.veh_data
 
     while true do
         for _, veh in ipairs(getAllVehicles()) do
 
-            local pveh = getCarPointer(veh)
-            if doesVehicleExist(veh) and veh_data[pveh] == nil then
+            if doesVehicleExist(veh) and veh_data[veh] == nil then
                 local model = getCarModel(veh)
-
-                -- if model == 461 then
-                --     printString("TEST",100)
-                -- end
-                -- veh_data[pveh] = true
+                
                 if tmain.gsx.handle ~= 0 then 
+                    local pveh = getCarPointer(veh)
                     if DataToLoadExists(pveh,"FVC_DATA") == 1 then
                         local pdata = GetLoadDataByVehPtr(pveh,"FVC_DATA")
                         local size  = GetDataToLoadSize(pveh,"FVC_DATA") 
-                        veh_data[pveh] = decodeJson(memory.tostring(pdata,size,false))                 
+                        veh_data[veh] = decodeJson(memory.tostring(pdata,size,false))                 
                     end
                 end
 
-                if veh_data[pveh] == nil then
-                    fgsx.Set(pveh,"odo_val",math.random(10000, 200000))
+                if veh_data[veh] == nil then
+                    fgsx.Set(veh,"odo_val",math.random(10000, 200000))
                 end
-                fgsx.Set(pveh,"hb_led",false)
+                fgsx.Set(veh,"hb_led",false)
 
                 flog.Write("")
                 flog.Write(string.format("Found vehicle %s (%d)",futil.GetNameOfVehicleModel(model), model))

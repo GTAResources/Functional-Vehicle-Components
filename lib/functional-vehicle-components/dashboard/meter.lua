@@ -63,7 +63,7 @@ function module.Odometer(veh,comp)
     local default_type = futil.GetValue(ODOMETER_DEFAULT_TYPE,"analog",comp.name,"_t(%w+)")
 
     local current_number = 0
-    local new_number = fgsx.Get(getCarPointer(veh),"odo_val") or 0
+    local new_number = fgsx.Get(veh,"odo_val") or 0
     local bac = 0
     local offset = nil
     local model = getCarModel(veh)
@@ -103,7 +103,7 @@ function module.Speedometer(veh,comp)
     local angle_end = futil.GetValue(SPEEDOMETER_ANGLE_END,180,comp.name,"_(-?%d[%d.]*)")
 
     local matrix = comp.modeling_matrix
-
+    local unit = futil.FindChildData(comp,"unit=",SPEEDOMETER_DEFAULT_UNIT,"mph")
     local speedm_max = futil.GetValue(SPEEDOMETER_MAX_SPEED,180,comp.name,"_m(%d+)")
 
     local total_rot = math.abs(angle_end) + math.abs(angle_start)
@@ -171,7 +171,7 @@ end
 
 function module.RPMmeter(veh, comp)
 
-    local angle_start = futil.GetValue(RPMMETER_ANGLE_START,-30,comp.name,"_ay=(-?%d+)")
+    local angle_start = futil.GetValue(RPMMETER_ANGLE_START,-30,comp.name,"_ay(-?%d+)")
     local angle_end = futil.GetValue(RPMMETER_ANGLE_END,180,comp.name,"_(-?%d+)")
 
     local matrix = comp.modeling_matrix

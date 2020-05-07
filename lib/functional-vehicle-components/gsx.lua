@@ -52,7 +52,7 @@ else
     module.pNotifyCallback = gsx.addNotifyCallback(function(data)
         local t = tmain.gsx.veh_data
         if data.status == 1 then -- save vehicle
-            local wdata = encodeJson(t[data.veh])
+            local wdata = encodeJson(t[getVehiclePointerHandle(data.veh)])
             if wdata ~= nil then
                 PushDirectlyToSavedData(data.veh,"FVC_DATA",#wdata,memory.strptr(wdata));
             end
@@ -60,23 +60,21 @@ else
     end)
 end
 
-function module.Set(pveh,str,val)
+function module.Set(veh,str,val)
     local t = tmain.gsx.veh_data
-    local veh = getVehiclePointerHandle(pveh)
     if doesVehicleExist(veh) then 
-        if  t[pveh] == nil then 
-            t[pveh] = {}
+        if  t[veh] == nil then 
+            t[veh] = {}
         end
-        t[pveh][str] = val
+        t[veh][str] = val
     end
 end
 
-function module.Get(pveh,str)
+function module.Get(veh,str)
     local t = tmain.gsx.veh_data
-    local veh = getVehiclePointerHandle(pveh)
     if doesVehicleExist(veh) then 
-        if t[pveh] then
-            return t[pveh][str]
+        if t[veh] then
+            return t[veh][str]
         end
     end
     return nil
