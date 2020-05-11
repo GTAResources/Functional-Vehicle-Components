@@ -14,6 +14,14 @@ function module.GetNameOfVehicleModel(model)
     return ffi.string(ffi.cast("char*",CVehicleModelInfo[tonumber(model)] + 0x32)) or ""
 end
 
+function module.CalcTotalRotation(angle_start,angle_end)
+    if (angle_start > 0 and angle_end > 0) or (angle_start < 0 and angle_end < 0) then
+        return math.abs(angle_end) - math.abs(angle_start)
+    else
+        return math.abs(angle_end) + math.abs(angle_start)
+    end
+end
+
 function module.GetValue(script_val,default_value,comp_name,model_data_prefix)
     if IGNORE_MODEL_VALUES then
         return script_val or default_value
@@ -84,15 +92,36 @@ function module.FindChildData(parent_comp,data_prefix,script_value,default_value
     if IGNORE_MODEL_VALUES then
         return script_value
     end
-
+    local data 
     for _, child_comp in ipairs(parent_comp:get_child_components()) do
         child_comp_name = child_comp.name:gsub(",",".")
-        local _,_,data = string.find(child_comp_name, data_prefix)
+        _,_,data = child_comp_name:find(data_prefix)
         if data then
             return data
         end
     end
     return default_value
+end
+
+function module.FindAnimations(parent_comp)
+    local data = {}
+
+    for _, child_comp in ipairs(parent_comp:get_child_components()) do
+        if child_comp.name == "fc_anim" then
+            for _, child_child_comp in ipairs(child_comp:get_child_components()) do
+
+                local file, anim = string.match(child_child_comp.name,
+                                                "([^_]+)_([^_]+)")
+                requestAnimation(file)
+                loadAllModelsNow()
+                table.insert(data, file)
+                table.insert(data, anim)
+                flog.Write(string.format("Found animation '%s'",anim))
+            end
+            return table.unpack(data)
+        end
+    end
+    return {}
 end
 
 function module.SetMaterialColor(comp,r,g,b,a)

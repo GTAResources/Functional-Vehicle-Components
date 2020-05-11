@@ -1,7 +1,7 @@
 script_name('Functional Vehicle Components')
 script_author("Grinch_")
 script_version("1.0-beta")
-script_version_number(2020050801) -- YYYYMMDDNN
+script_version_number(2020051101) -- YYYYMMDDNN
 script_description("Adds more features/ functions to vehicle components")
 script_dependencies("ffi", "Memory", "MoonAdditions", "log")
 script_properties('work-in-pause')
@@ -26,6 +26,7 @@ CHAIN_TIME_FACTOR = 5
 GEAR_LEVER_NORMAL_ANGLE = 15
 GEAR_LEVER_OFFSET_ANGLE = 15
 GEAR_LEVER_WAIT_TIME = 1
+GEAR_LEVER_TYPE = 1
 
 -- FunctionalOdometer
 ODOMETER_ROTATION_ANGLE = 36
@@ -74,6 +75,7 @@ tmain =
         veh_data = {},
     },
 }
+
 --------------------------------------------------
 -- Libraries & modules
 
@@ -95,38 +97,39 @@ CVehicleModelInfo = ffi.cast("uintptr_t*", 0xA9B0C8)
 isThisModelABike = ffi.cast("bool(*)(int model)", 0x4C5B60)
 fTimeStep = ffi.cast("float*",0xB7CB5C) -- CTimer::ms_fTimeStep
 
-function DrawFuelBar(fuel)
-    if fuel < -24 then fuel = -24 end
-    local resX, resY = getScreenResolution()
-    local posX = resX/ 1.17
-    local posY = resY / 4.3
-    local ratioX = resX/1366
-    local ratioY = resY/768
+-- function DrawFuelBar(fuel)
+--     if fuel < -24 then fuel = -24 end
+--     local resX, resY = getScreenResolution()
+--     local posX = resX/ 1.17
+--     local posY = resY / 4.3
+--     local ratioX = resX/1366
+--     local ratioY = resY/768
     
-    if readMemory(0xA444A0,1,false) == 1 then -- hud enabled
-        mad.draw_rect(posX,posY,posX+130*ratioX,posY+15*ratioY,0,0,0,255,0.0)
-        mad.draw_rect(posX+3.5*ratioX,posY+3.5*ratioY,posX+126.5*ratioX,posY+11.5*ratioY,128,128,128,255,0.0)
-        mad.draw_rect(posX+3.5*ratioX,posY+3.5*ratioY,posX+(26.5+fuel)*ratioX,posY+11.5*ratioY,148,146,145,255,0.0)
-    end
-end
+--     if readMemory(0xA444A0,1,false) == 1 then -- hud enabled
+--         mad.draw_rect(posX,posY,posX+130*ratioX,posY+15*ratioY,0,0,0,255,0.0)
+--         mad.draw_rect(posX+3.5*ratioX,posY+3.5*ratioY,posX+126.5*ratioX,posY+11.5*ratioY,128,128,128,255,0.0)
+--         mad.draw_rect(posX+3.5*ratioX,posY+3.5*ratioY,posX+(26.5+fuel)*ratioX,posY+11.5*ratioY,148,146,145,255,0.0)
+--     end
+-- end
 
 function IsPlayerNearFuel()
-    fuel = 100
     while true do
         if isCharInAnyCar(PLAYER_PED) then
             local veh = getCarCharIsUsing(PLAYER_PED)
             local x,y,z = getCarCoordinates(veh)
             for _,obj in ipairs(mad.get_all_objects(x,y,z,5.0,false)) do
                 local model =  getObjectModel(obj)
-                if model == 1676 or model == 1686 or model == 3465 then
+                local fuel = fgsx.Get(veh,"fm_fuel") or 0
+                if (model == 1676 or model == 1686 or model == 3465) and fuel < 80 then
                     printString("Press Space to refuel your vehicle",100)
                     if isKeyDown(0x20) then
-                        printString("Vehicle refueled",100)
+                        fgsx.Set(veh,"fm_fuel",100)
+                        printString("Vehicle refueled",1000)
+                        wait(1000)
                     end
                 end
             end
-            fuel = fuel - 0.1
-            DrawFuelBar(fuel)
+            -- DrawFuelBar(fuel)
         end
         
         wait(0)
@@ -139,6 +142,7 @@ local find_callback  =
     ["fc_cl"]        = fmisc.Clutch,
     ["fc_dled"]      = fdashboard.DamageLed,
     ["fc_fbrake"]    = fmisc.FrontBrake,
+    ["fc_fm"]        = fdashboard.FuelMeter,
     ["fc_gl"]        = fmisc.GearLever,
     ["fc_gv"]        = fdashboard.GearMeter,
     ["fc_hbled"]     = fdashboard.HighBeamLed,
@@ -153,7 +157,7 @@ local find_callback  =
 
 
 function main()
-    -- lua_thread.create(IsPlayerNearFuel)
+    lua_thread.create(IsPlayerNearFuel)
 
     local veh_data = tmain.gsx.veh_data
 
