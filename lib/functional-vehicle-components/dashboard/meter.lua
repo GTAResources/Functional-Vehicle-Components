@@ -166,77 +166,11 @@ function module.FuelMeter(veh,comp)
     end
 end
 
--- function module.RPMmeter(veh, comp)
-
---     local angle_start = futil.GetValue(RPMMETER_ANGLE_START,-30,comp.name,"_ay(-?%d+)")
---     local angle_end = futil.GetValue(RPMMETER_ANGLE_END,180,comp.name,"_(-?%d+)")
-
---     local matrix = comp.modeling_matrix
-
---     flog.ProcessingComponent(comp.name)
-
---     local meter_max = futil.GetValue(RPMMETER_MAX_RPM,9,comp.name,"_m(%d+)")
---     meter_max = 16
---     local total_rot = math.abs(angle_end) + math.abs(angle_start)
---     local cur_rpm = 0.6
---     local cur_speed = 0
---     local gear = 0
---     local temp = 0
---     local rotation = 0
-
---     while true do
---         if not doesVehicleExist(veh) then return end
-
---         local rea_speed = futil.GetRealisticSpeed(veh)
-               
---         local fGas_state = math.floor(memory.getfloat(getCarPointer(veh)+0x49C))
---         if fGas_state > 0 then
---             if rea_speed > cur_speed then
---                 cur_speed = rea_speed
---                 cur_rpm = cur_rpm + (fTimeStep[0]/ 1.6666) * (fGas_state / 6.0)
---             end
---         else
---             cur_rpm = cur_rpm - (fTimeStep[0]/ 1.6666) * 0.3
---             cur_speed = 0
---         end
-        
---         local cur_gear = getCarCurrentGear(veh)
---         if gear ~= cur_gear then
---             if gear < cur_gear then
---                 cur_rpm = cur_rpm - 2
---             end
---             gear = cur_gear
---         end
-
---         if cur_rpm < 0 then cur_rpm = 0 end
---         temp = total_rot / meter_max * cur_rpm + angle_start
-        
---         if isCarEngineOn(veh) then
---             temp = temp+20
---         end
-
---         if rotation < temp then 
---             rotation = rotation + (temp-rotation)/5
---         end
-
---         if rotation > temp then 
---             rotation = rotation - (rotation-temp)/5
---         end
-
---         cur_rpm = cur_rpm > meter_max and meter_max or cur_rpm
---         rotation = rotation > angle_end and angle_end or rotation
-        
---         matrix:rotate_y(rotation)
-
---         wait(0)
---     end
--- end
-
 function module.RPMmeter(veh, comp)
 
     local angle_start = futil.GetValue(RPMMETER_ANGLE_START,-30,comp.name,"_ay(-?%d+)")
     local angle_end = futil.GetValue(RPMMETER_ANGLE_END,180,comp.name,"_(-?%d+)")
-
+    angle_start = 0
     local matrix = comp.modeling_matrix
 
     flog.ProcessingComponent(comp.name)
@@ -249,39 +183,23 @@ function module.RPMmeter(veh, comp)
     local gear = 0
     local temp = 0
     local rotation = 0
-    local rea_speed = 0
 
-    local pVeh = getCarPointer(veh)
     while true do
         if not doesVehicleExist(veh) then return end
 
-        if isThisModelABike(getCarModel(veh)) then -- bike
-            local fWheelSpeed = ffi.cast("float*", pVeh + 0x758) -- CBike.fWheelSpeed[]
-            rea_speed = fWheelSpeed[1]
-        else
-            if isThisModelACar(getCarModel(veh)) then -- bike
-                local fWheelSpeed = ffi.cast("float*", pVeh + 0x848) -- Automobile.fWheelSpeed[]
-                rea_speed = fWheelSpeed[3]
-            else
-                rea_speed = getCarSpeed(veh) * -0.0426 -- Manually tested
-            end
-        end
-        rea_speed = rea_speed*-5
-
-        printString(tostring(cur_rpm),100)
-        if rea_speed > cur_speed then
-            local rpm = cur_rpm + (fTimeStep[0]/ 1.6666) * (1 / 6.0)
-            if rpm < angle_end then
-                cur_rpm = rpm
+        local rea_speed = futil.GetRealisticSpeed(veh)
+               
+        local fGas_state = math.floor(memory.getfloat(getCarPointer(veh)+0x49C))
+        if fGas_state > 0 then
+            if rea_speed > cur_speed then
+                cur_speed = rea_speed
+                cur_rpm = cur_rpm + (fTimeStep[0]/ 1.6666) * (fGas_state / 6.0)
             end
         else
-            local rpm = cur_rpm - (fTimeStep[0]/ 1.6666) * (1 / 6.0)
-            if rpm > angle_start then
-                cur_rpm = rpm
-            end
+            cur_rpm = cur_rpm - (fTimeStep[0]/ 1.6666) * 0.3
+            cur_speed = 0
         end
-        cur_speed = rea_speed
-
+        
         local cur_gear = getCarCurrentGear(veh)
         if gear ~= cur_gear then
             if gear < cur_gear then
@@ -298,11 +216,11 @@ function module.RPMmeter(veh, comp)
         end
 
         if rotation < temp then 
-            rotation = rotation + (temp-rotation)/5
+            rotation = rotation + (temp-rotation)/3
         end
 
         if rotation > temp then 
-            rotation = rotation - (rotation-temp)/5
+            rotation = rotation - (rotation-temp)/3
         end
 
         cur_rpm = cur_rpm > meter_max and meter_max or cur_rpm
@@ -313,6 +231,7 @@ function module.RPMmeter(veh, comp)
         wait(0)
     end
 end
+
 
 function module.DigitalGearMeter(veh,comp)
 

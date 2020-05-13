@@ -271,7 +271,7 @@ end
 
 function module.RearBrake(veh, comp)
 
-    local offset_angle = futil.GetValue(REAR_BRAKE_OFFSET_ANGLE,15,comp.name,"_ax(-?%d[%d.]*)")
+    local offset_angle = futil.GetValue(REAR_BRAKE_OFFSET_ANGLE,5,comp.name,"_ax(-?%d[%d.]*)")
     local wait_time = futil.GetValue(REAR_BRAKE_WAIT_TIME,1,comp.name,"_ms(%d)")
     local rbrakeup_file, rbrakeup_anim, rbrakedown_file, rbrakedown_anim = futil.FindAnimations(comp)
 
@@ -287,7 +287,6 @@ function module.RearBrake(veh, comp)
             local temp = 1
 
             if offset_angle < 0 then temp = -1 end
-
             taskPlayAnimSecondary(getDriverOfCar(veh), rbrakedown_anim, rbrakedown_file, 4.0,false, false, false, false, -1)
             
             for i = 0, offset_angle/2, temp do

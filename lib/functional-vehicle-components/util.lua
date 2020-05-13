@@ -35,7 +35,7 @@ function module.GetValue(script_val,default_value,comp_name,model_data_prefix)
         return rtn_val or default_value
     end
 end
-
+    
 -- This function is taken from juniors vehfuncs
 function module.GetRealisticSpeed(veh, wheel)
 

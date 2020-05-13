@@ -6,9 +6,9 @@ function module.NeutralLed(veh, comp)
         if not doesVehicleExist(veh) then return end
 
         if getCarCurrentGear(veh) == 0 and isCarEngineOn(veh) then
-            futil.SetMaterialColor(comp,0,200,0,200)
+            futil.SetMaterialColor(comp,0,200,0,255)
         else
-            futil.SetMaterialColor(comp,10,25,10,200)
+            futil.SetMaterialColor(comp,10,25,10,255)
         end
         
         wait(0)
@@ -22,9 +22,9 @@ function module.DamageLed(veh, comp)
         if not doesVehicleExist(veh) then return end
 
         if getCarHealth(veh) < 650 and isCarEngineOn(veh) then
-            futil.SetMaterialColor(comp,255,30,21,200)
+            futil.SetMaterialColor(comp,255,30,21,255)
         else
-            futil.SetMaterialColor(comp,30,10,10,200)
+            futil.SetMaterialColor(comp,30,10,10,255)
         end
         wait(0)
     end
@@ -39,12 +39,12 @@ function module.PowerLed(veh, comp)
 
         if isCarEngineOn(veh) then
             if speed >= 100 then
-                futil.SetMaterialColor(comp,240,0,0,200)
+                futil.SetMaterialColor(comp,240,0,0,255)
             else
-                futil.SetMaterialColor(comp,0,200,0,200)
+                futil.SetMaterialColor(comp,0,200,0,255)
             end
         else
-            futil.SetMaterialColor(comp,30,30,30,200)
+            futil.SetMaterialColor(comp,30,30,30,255)
         end
         wait(0)
     end
@@ -68,7 +68,7 @@ function module.HighBeamLed(veh, comp)
             end
 
             if hb_status and light_status == 64 and isCarEngineOn(veh) then
-                futil.SetMaterialColor(comp,30,30,60,200)
+                futil.SetMaterialColor(comp,30,30,60,255)
             else
                 futil.SetMaterialColor(comp,50,50,255,255)
             end
