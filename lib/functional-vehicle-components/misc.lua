@@ -47,8 +47,6 @@ function module.GearLever(veh, comp)
     local matrix = comp.modeling_matrix
     local current_gear = -1
 
-    local gup_file, gup_anim, gdown_file, gdown_anim = futil.FindAnimations(comp)
-
     rotate_gear = function(val)
         local change_angle = normal_angle - offset_angle*val
 
@@ -73,12 +71,6 @@ function module.GearLever(veh, comp)
 
             if current_gear > gear then
                 val = -1
-            end
-
-            if val > 1 then
-                taskPlayAnimSecondary(getDriverOfCar(veh), gup_anim, gup_file, 4.0,false, false, false, false, -1)
-            else
-                taskPlayAnimSecondary(getDriverOfCar(veh), gdown_anim, gdown_file, 4.0,false, false, false, false, -1)
             end
 
             if gear_type == 1 then
@@ -119,7 +111,6 @@ function module.Clutch(veh, comp)
 
     local rotation_angle = futil.GetValue(CLUTCH_ROTATION_ANGLE,17,comp.name,"_az(%w+)")
     local wait_time = futil.GetValue(CLUTCH_WAIT_TIME,1,comp.name,"_ms(%d+)")
-    local cl_file, cl_anim = futil.FindAnimations(comp)
 
     local matrix = comp.modeling_matrix
     local current_gear = 0
@@ -130,7 +121,6 @@ function module.Clutch(veh, comp)
 
         if getCarCurrentGear(veh) ~= current_gear then
             current_gear = getCarCurrentGear(veh)
-            taskPlayAnimSecondary(getDriverOfCar(veh), cl_anim, cl_file, 4.0,false, false, false, false, -1)
             for i = 0, rotation_angle / 4, 1 do
                 matrix:rotate_z(i * 4)
                 wait(wait_time)
@@ -151,8 +141,6 @@ function module.Throttle(veh, comp)
     local wait_time = futil.GetValue(THROTTLE_WAIT_TIME,50,comp.name,"_ms(%d+)")
     
     local rotx, roty, rotz
-
-    local thup_file, thup_anim, thdown_file, thdown_anim = futil.FindAnimations(comp)
 
     rotation = rotation/20 -- manual test
     if rotate_axis ~= "x" then
@@ -208,12 +196,10 @@ function module.Throttle(veh, comp)
                 if not doesVehicleExist(veh) then return end
 
                 if fGas_state == 1 then      
-                    taskPlayAnimSecondary(getDriverOfCar(veh), thup_anim, thup_file, 4.0,false, false, false, false, -1)
                     for i=0,rotation,0.5 do
                         rotate_throttle(i,cur_rotx,cur_roty,cur_rotz)
                     end
                 else
-                    taskPlayAnimSecondary(getDriverOfCar(veh), thdown_anim, thdown_file, 4.0,false, false, false, false, -1)
                     for i=rotation,0,-0.5 do
                         rotate_throttle(i,cur_rotx,cur_roty,cur_rotz)
                     end
@@ -224,17 +210,14 @@ function module.Throttle(veh, comp)
                 end
             end
         end
-
         wait(0)
     end
-    ::exit_function::
 end
 
 function module.FrontBrake(veh, comp)
 
     local offset_angle = futil.GetValue(FRONT_BRAKE_OFFSET_ANGLE,15,comp.name,"_az(-?%d[%d.]*)")
     local wait_time = futil.GetValue(FRONT_BRAKE_WAIT_TIME,1,comp.name,"_ms(%d)")
-    local fbrakeup_file, fbrakeup_anim, fbrakedown_file, fbrakedown_anim = futil.FindAnimations(comp)
 
     local matrix = comp.modeling_matrix
     local pveh = getCarPointer(veh)
@@ -249,7 +232,6 @@ function module.FrontBrake(veh, comp)
 
             if offset_angle < 0 then temp = -1 end
 
-            taskPlayAnimSecondary(getDriverOfCar(veh), fbrakedown_anim, fbrakedown_file, 4.0,false, false, false, false, -1)
             for i = 0, offset_angle / 4, temp do
                 matrix:rotate_z(i * 4)
                 wait(wait_time)
@@ -257,7 +239,6 @@ function module.FrontBrake(veh, comp)
 
             while memory.getfloat(pveh + 0x4A0) == 1 do wait(0) end
 
-            taskPlayAnimSecondary(getDriverOfCar(veh), fbrakeup_anim, fbrakeup_file, 4.0,false, false, false, false, -1)
             for i = offset_angle / 4, 0, (temp * -1) do
                 matrix:rotate_z(i * 4)
                 wait(wait_time)
@@ -273,7 +254,6 @@ function module.RearBrake(veh, comp)
 
     local offset_angle = futil.GetValue(REAR_BRAKE_OFFSET_ANGLE,5,comp.name,"_ax(-?%d[%d.]*)")
     local wait_time = futil.GetValue(REAR_BRAKE_WAIT_TIME,1,comp.name,"_ms(%d)")
-    local rbrakeup_file, rbrakeup_anim, rbrakedown_file, rbrakedown_anim = futil.FindAnimations(comp)
 
     local matrix = comp.modeling_matrix
     local pveh = getCarPointer(veh)
@@ -287,7 +267,6 @@ function module.RearBrake(veh, comp)
             local temp = 1
 
             if offset_angle < 0 then temp = -1 end
-            taskPlayAnimSecondary(getDriverOfCar(veh), rbrakedown_anim, rbrakedown_file, 4.0,false, false, false, false, -1)
             
             for i = 0, offset_angle/2, temp do
                 matrix:rotate_x(i*2)
@@ -298,7 +277,6 @@ function module.RearBrake(veh, comp)
                 wait(0)
             end
 
-            taskPlayAnimSecondary(getDriverOfCar(veh), rbrakeup_anim, rbrakeup_file, 4.0,false, false, false, false, -1)
             for i = offset_angle/2, 0, (temp * -1) do
                 matrix:rotate_x(i*2)
                 wait(wait_time)

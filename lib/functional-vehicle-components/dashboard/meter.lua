@@ -101,10 +101,11 @@ function module.Speedometer(veh,comp)
 
     local angle_start = futil.GetValue(SPEEDOMETER_ANGLE_START,0,comp.name,"_ay(-?%d[%d.]*)")
     local angle_end = futil.GetValue(SPEEDOMETER_ANGLE_END,180,comp.name,"_(-?%d[%d.]*)")
-    
+    angle_end = 270
     local matrix = comp.modeling_matrix
     local unit = futil.FindChildData(comp,"unit=",SPEEDOMETER_DEFAULT_UNIT,"mph")
     local speedm_max = futil.GetValue(SPEEDOMETER_MAX_SPEED,180,comp.name,"_m(%d+)")
+    speedm_max = 130
     local total_rot = futil.CalcTotalRotation(angle_start,angle_end)
     local temp = 0
     local rotation = 0
@@ -113,7 +114,8 @@ function module.Speedometer(veh,comp)
     while true do
         if not doesVehicleExist(veh) then return end
 
-        local speed = futil.GetRealisticSpeed(veh, 1)
+        local speed = math.abs(futil.GetRealisticSpeed(veh, 1))
+        
         
         if unit == "mph" then speed = speed / 1.6 end
 
@@ -128,12 +130,86 @@ function module.Speedometer(veh,comp)
         if rotation > temp then 
             rotation = rotation - (rotation-temp)/5
         end
-
+        
         matrix:rotate_y(rotation)
 
         wait(0)
     end
 end
+
+function module.RPMmeter(veh, comp)
+
+    local angle_start = futil.GetValue(RPMMETER_ANGLE_START,-30,comp.name,"_ay(-?%d+)")
+    local angle_end = futil.GetValue(RPMMETER_ANGLE_END,180,comp.name,"_(-?%d+)")
+    angle_start = 0
+    local matrix = comp.modeling_matrix
+
+    flog.ProcessingComponent(comp.name)
+
+    local meter_max = futil.GetValue(RPMMETER_MAX_RPM,9,comp.name,"_m(%d+)")
+    meter_max = 16
+    local total_rot = math.abs(angle_end) + math.abs(angle_start)
+    local cur_rpm = 0
+    local temp = 0
+    local rotation = 0
+    local cur_gear = 0
+
+    while true do
+        if not doesVehicleExist(veh) then return end
+
+        local rea_speed = futil.GetRealisticSpeed(veh)
+
+        if math.floor(memory.getfloat(getCarPointer(veh)+0x49C)) ~= 0 then
+            cur_gear = getCarCurrentGear(veh)
+        end
+
+        if cur_gear ~= 0 then
+            cur_rpm = rea_speed/cur_gear
+        end
+
+        cur_rpm = cur_rpm < 0 and 0 or cur_rpm
+        cur_rpm = cur_rpm > meter_max and meter_max or cur_rpm
+
+        temp = total_rot / meter_max * cur_rpm + angle_start
+        
+        if isCarEngineOn(veh) then
+           temp = temp + 20
+        end
+
+        if rotation < temp then 
+            rotation = rotation + (temp-rotation)/3
+            rotation = rotation > angle_end and angle_end or rotation
+        end
+
+        if rotation > temp then 
+            rotation = rotation - (rotation-temp)/3
+            rotation = rotation < angle_start and angle_start or rotation
+        end
+        
+        matrix:rotate_y(rotation)
+
+        wait(0)
+    end
+end
+
+function module.DigitalGearMeter(veh,comp)
+
+    local number_table = {}
+    
+    for _, comp in ipairs(comp:get_child_components()) do
+        table.insert(number_table, comp)
+    end
+
+    flog.ProcessingComponent(comp.name)
+    while true do
+
+        if not doesVehicleExist(veh) then return end
+        futil.HideChildsExcept(number_table,getCarCurrentGear(veh))
+        
+        wait(0)
+    end
+end
+
 
 function module.FuelMeter(veh,comp)
 
@@ -166,86 +242,41 @@ function module.FuelMeter(veh,comp)
     end
 end
 
-function module.RPMmeter(veh, comp)
 
-    local angle_start = futil.GetValue(RPMMETER_ANGLE_START,-30,comp.name,"_ay(-?%d+)")
-    local angle_end = futil.GetValue(RPMMETER_ANGLE_END,180,comp.name,"_(-?%d+)")
-    angle_start = 0
-    local matrix = comp.modeling_matrix
-
-    flog.ProcessingComponent(comp.name)
-
-    local meter_max = futil.GetValue(RPMMETER_MAX_RPM,9,comp.name,"_m(%d+)")
-    meter_max = 16
-    local total_rot = math.abs(angle_end) + math.abs(angle_start)
-    local cur_rpm = 0.6
-    local cur_speed = 0
-    local gear = 0
-    local temp = 0
-    local rotation = 0
-
-    while true do
-        if not doesVehicleExist(veh) then return end
-
-        local rea_speed = futil.GetRealisticSpeed(veh)
-               
-        local fGas_state = math.floor(memory.getfloat(getCarPointer(veh)+0x49C))
-        if fGas_state > 0 then
-            if rea_speed > cur_speed then
-                cur_speed = rea_speed
-                cur_rpm = cur_rpm + (fTimeStep[0]/ 1.6666) * (fGas_state / 6.0)
-            end
-        else
-            cur_rpm = cur_rpm - (fTimeStep[0]/ 1.6666) * 0.3
-            cur_speed = 0
-        end
-        
-        local cur_gear = getCarCurrentGear(veh)
-        if gear ~= cur_gear then
-            if gear < cur_gear then
-                cur_rpm = cur_rpm - 2
-            end
-            gear = cur_gear
-        end
-
-        if cur_rpm < 0 then cur_rpm = 0 end
-        temp = total_rot / meter_max * cur_rpm + angle_start
-        
-        if isCarEngineOn(veh) then
-            temp = temp+20
-        end
-
-        if rotation < temp then 
-            rotation = rotation + (temp-rotation)/3
-        end
-
-        if rotation > temp then 
-            rotation = rotation - (rotation-temp)/3
-        end
-
-        cur_rpm = cur_rpm > meter_max and meter_max or cur_rpm
-        rotation = rotation > angle_end and angle_end or rotation
-        
-        matrix:rotate_y(rotation)
-
-        wait(0)
-    end
-end
-
-
-function module.DigitalGearMeter(veh,comp)
-
-    local number_table = {}
+-- function DrawFuelBar(fuel)
+--     if fuel < -24 then fuel = -24 end
+--     local resX, resY = getScreenResolution()
+--     local posX = resX/ 1.17
+--     local posY = resY / 4.3
+--     local ratioX = resX/1366
+--     local ratioY = resY/768
     
-    for _, comp in ipairs(comp:get_child_components()) do
-        table.insert(number_table, comp)
-    end
+--     if readMemory(0xA444A0,1,false) == 1 then -- hud enabled
+--         mad.draw_rect(posX,posY,posX+130*ratioX,posY+15*ratioY,0,0,0,255,0.0)
+--         mad.draw_rect(posX+3.5*ratioX,posY+3.5*ratioY,posX+126.5*ratioX,posY+11.5*ratioY,128,128,128,255,0.0)
+--         mad.draw_rect(posX+3.5*ratioX,posY+3.5*ratioY,posX+(26.5+fuel)*ratioX,posY+11.5*ratioY,148,146,145,255,0.0)
+--     end
+-- end
 
-    flog.ProcessingComponent(comp.name)
+function module.IsPlayerNearFuel()
     while true do
-
-        if not doesVehicleExist(veh) then return end
-        futil.HideChildsExcept(number_table,getCarCurrentGear(veh))
+        if isCharInAnyCar(PLAYER_PED) then
+            local veh = getCarCharIsUsing(PLAYER_PED)
+            local x,y,z = getCarCoordinates(veh)
+            for _,obj in ipairs(mad.get_all_objects(x,y,z,5.0,false)) do
+                local model =  getObjectModel(obj)
+                local fuel = fgsx.Get(veh,"fm_fuel") or 0
+                if (model == 1676 or model == 1686 or model == 3465) and fuel < 80 then
+                    printString("Press Space to refuel your vehicle",100)
+                    if isKeyDown(0x20) then
+                        fgsx.Set(veh,"fm_fuel",100)
+                        printString("Vehicle refueled",1000)
+                        wait(1000)
+                    end
+                end
+            end
+            -- DrawFuelBar(fuel)
+        end
         
         wait(0)
     end

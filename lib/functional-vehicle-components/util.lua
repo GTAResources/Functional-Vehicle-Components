@@ -1,5 +1,16 @@
 local module = {}
 
+function module.GetSkygfxVehpipeColor(normal_color, special_color)
+    if tmain.skygfx.pconfig ~= nil then
+        local veh_pipe = readMemory(tmain.skygfx.pconfig+56,4,false)
+
+        if veh_pipe == 2 and special_color ~= nil then -- XBOX pipeline
+            return table.unpack(special_color)
+        end
+    end
+    return table.unpack(normal_color)
+end
+
 function FindComponentData(comp_name,data_pattern)
     local comp_name = comp_name:gsub(",",".")
     local _,_,data = string.find(comp_name, data_pattern)
@@ -39,6 +50,7 @@ end
 -- This function is taken from juniors vehfuncs
 function module.GetRealisticSpeed(veh, wheel)
 
+    local model = getCarModel(veh)
     if not doesVehicleExist(veh) then return end
     -- if isCarStopped(veh) then return 0 end
 
@@ -49,7 +61,7 @@ function module.GetRealisticSpeed(veh, wheel)
     local rearWheelSize = memory.getfloat(
                               CVehicleModelInfo[getCarModel(veh)] + 0x44)
 
-    if isThisModelABike(getCarModel(veh)) then -- bike
+    if isThisModelABike(model) then -- bike
         local fWheelSpeed = ffi.cast("float*", pVeh + 0x758) -- CBike.fWheelSpeed[]
 
         if wheel == nil then
@@ -61,23 +73,24 @@ function module.GetRealisticSpeed(veh, wheel)
                 realisticSpeed = fWheelSpeed[wheel] * rearWheelSize
             end
         end
+        realisticSpeed = realisticSpeed + 0.08
+    end
+
+    if isThisModelAPlane(model) or isThisModelAHeli(model) or isThisModelABoat(model) then
+        realisticSpeed = getCarSpeed(veh) * -0.0426 -- Manually tested
     else
-        if isThisModelACar(getCarModel(veh)) then -- bike
+        if isThisModelACar(model) then -- car
             local fWheelSpeed = ffi.cast("float*", pVeh + 0x848) -- Automobile.fWheelSpeed[]
             if wheel == nil then
-                realisticSpeed = (fWheelSpeed[1] * frontWheelSize +
-                                     fWheelSpeed[2] * frontWheelSize +
-                                     fWheelSpeed[3] * rearWheelSize +
-                                     fWheelSpeed[4] * rearWheelSize) / 4
+                realisticSpeed = (fWheelSpeed[1] * frontWheelSize + fWheelSpeed[2] * frontWheelSize + fWheelSpeed[3] * rearWheelSize +
+                                    fWheelSpeed[4] * rearWheelSize) / 4
             else
                 if wheel == 0 or wheel == 1 then
                     realisticSpeed = fWheelSpeed[wheel] * frontWheelSize
                 else
                     realisticSpeed = fWheelSpeed[wheel] * rearWheelSize
                 end
-            end
-        else
-            wheelSpeed = getCarSpeed(veh) * -0.0426 -- Manually tested
+            end   
         end
     end
 
