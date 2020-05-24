@@ -84,7 +84,7 @@ function module.Odometer(veh,comp)
 
     flog.ProcessingComponent(comp.name)
     while true do
-        if not doesVehicleExist(veh) or offset == nil then return end
+        if futil.VehicleCheck(veh) or offset == nil then return end
 
         local val = math.abs(math.floor(memory.getfloat(getCarPointer(veh) + offset) / 200))
         new_number = new_number + math.abs(bac - val)
@@ -112,7 +112,7 @@ function module.Speedometer(veh,comp)
     
     flog.ProcessingComponent(comp.name)
     while true do
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
 
         local speed = math.abs(futil.GetRealisticSpeed(veh, 1))
         
@@ -139,15 +139,13 @@ end
 
 function module.RPMmeter(veh, comp)
 
-    local angle_start = futil.GetValue(RPMMETER_ANGLE_START,-30,comp.name,"_ay(-?%d+)")
+    local angle_start = futil.GetValue(RPMMETER_ANGLE_START,0,comp.name,"_ay(-?%d+)")
     local angle_end = futil.GetValue(RPMMETER_ANGLE_END,180,comp.name,"_(-?%d+)")
-    angle_start = 0
     local matrix = comp.modeling_matrix
 
     flog.ProcessingComponent(comp.name)
 
     local meter_max = futil.GetValue(RPMMETER_MAX_RPM,9,comp.name,"_m(%d+)")
-    meter_max = 16
     local total_rot = math.abs(angle_end) + math.abs(angle_start)
     local cur_rpm = 0
     local temp = 0
@@ -155,7 +153,7 @@ function module.RPMmeter(veh, comp)
     local cur_gear = 0
 
     while true do
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
 
         local rea_speed = futil.GetRealisticSpeed(veh)
 
@@ -203,7 +201,7 @@ function module.DigitalGearMeter(veh,comp)
     flog.ProcessingComponent(comp.name)
     while true do
 
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
         futil.HideChildsExcept(number_table,getCarCurrentGear(veh))
         
         wait(0)
@@ -225,7 +223,7 @@ function module.FuelMeter(veh,comp)
     flog.ProcessingComponent(comp.name)
     
     while true do
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
 
         local fuel = fgsx.Get(veh,"fm_fuel") or 0
         local speed = futil.GetRealisticSpeed(veh)

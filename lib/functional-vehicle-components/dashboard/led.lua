@@ -3,7 +3,7 @@ function module.NeutralLed(veh, comp)
 
     flog.ProcessingComponent(comp.name)
     while true do
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
 
         if getCarCurrentGear(veh) == 0 and isCarEngineOn(veh) then
             futil.SetMaterialColor(comp,0,200,0,255)
@@ -19,7 +19,7 @@ function module.DamageLed(veh, comp)
 
     flog.ProcessingComponent(comp.name)
     while true do
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
 
         if getCarHealth(veh) < 650 and isCarEngineOn(veh) then
             futil.SetMaterialColor(comp,255,30,21,255)
@@ -35,7 +35,7 @@ function module.PowerLed(veh, comp)
     flog.ProcessingComponent(comp.name)
     while true do
         local speed = futil.GetRealisticSpeed(veh, 1)
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
 
         if isCarEngineOn(veh) then
             if speed >= 100 then

@@ -1,7 +1,7 @@
 script_name('Functional Vehicle Components')
 script_author("Grinch_")
 script_version("1.0-beta")
-script_version_number(2020052401) -- YYYYMMDDNN
+script_version_number(2020052501) -- YYYYMMDDNN
 script_description("Adds more features/ functions to vehicle components")
 script_dependencies("ffi", "Memory", "MoonAdditions", "log")
 script_properties('work-in-pause')

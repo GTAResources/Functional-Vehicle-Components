@@ -11,7 +11,7 @@ function module.Chain(veh,comp)
     end
 
     rotate_chain = function(i)
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
         futil.HideChildsExcept(chain_table,i)
         wait(time / math.abs(speed))
     end
@@ -19,7 +19,7 @@ function module.Chain(veh,comp)
     flog.ProcessingComponent(comp.name)
     while true do
 
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
 
         speed = futil.GetRealisticSpeed(veh, 1)
         
@@ -63,7 +63,7 @@ function module.GearLever(veh, comp)
     flog.ProcessingComponent(comp.name)
     while true do
 
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
        
         local gear = getCarCurrentGear(veh)
         if gear ~= current_gear then
@@ -78,24 +78,24 @@ function module.GearLever(veh, comp)
             else
                 -- N-> 1
                 if current_gear == 0 then
-                    rotate_gear(-1)
+                    rotate_gear(1)
                 end
 
                 -- 1->4
                 if current_gear > 0 and val == 1 then
-                    rotate_gear(1)
+                    rotate_gear(-1)
                 end
 
                 -- 4->1
                 if current_gear > 0 and val == -1 then
-                    rotate_gear(-1)
+                    rotate_gear(1)
                 end
 
                 -- 1->N
                 if current_gear == 1 and val == -1 then
                     local temp = offset_angle
                     offset_angle = offset_angle/2
-                    rotate_gear(1)
+                    rotate_gear(-1)
                     offset_angle = temp
                 end
             end
@@ -117,7 +117,7 @@ function module.Clutch(veh, comp)
 
     flog.ProcessingComponent(comp.name)
     while true do
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
 
         if getCarCurrentGear(veh) ~= current_gear then
             current_gear = getCarCurrentGear(veh)
@@ -180,7 +180,7 @@ function module.Throttle(veh, comp)
     end
 
     while true do
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
 
         local fGas_state = math.floor(memory.getfloat(getCarPointer(veh)+0x49C))
         local gear = getCarCurrentGear(veh)
@@ -193,7 +193,7 @@ function module.Throttle(veh, comp)
                 local cur_roty = roty or rotation
                 local cur_rotz = rotz or rotation
 
-                if not doesVehicleExist(veh) then return end
+                if futil.VehicleCheck(veh) then return end
 
                 if fGas_state == 1 then      
                     for i=0,rotation,0.5 do
@@ -224,7 +224,7 @@ function module.FrontBrake(veh, comp)
 
     flog.ProcessingComponent(comp.name)
     while true do
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
 
         if memory.getfloat(pveh + 0x4A0) == 1 then -- bIsHandbrakeOn
 
@@ -260,7 +260,7 @@ function module.RearBrake(veh, comp)
 
     flog.ProcessingComponent(comp.name)
     while true do
-        if not doesVehicleExist(veh) then return end
+        if futil.VehicleCheck(veh) then return end
 
         if bit.band(memory.read(pveh + 0x428, 2), 32) == 32 then -- m_fBrakePedal
 

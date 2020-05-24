@@ -1,10 +1,18 @@
 local module = {}
 
+function module.VehicleCheck(veh)
+    if not doesVehicleExist(veh) or isCarDead(veh) then 
+        return true
+    else
+        return false
+    end
+end
+
 function module.GetSkygfxVehpipeColor(normal_color, special_color)
     if tmain.skygfx.pconfig ~= nil then
         local veh_pipe = readMemory(tmain.skygfx.pconfig+56,4,false)
 
-        if veh_pipe == 2 and special_color ~= nil then -- XBOX pipeline
+        if (veh_pipe == 1 or veh_pipe == 2) and special_color ~= nil then -- PC & XBOX pipeline
             return table.unpack(special_color)
         end
     end
@@ -50,10 +58,9 @@ end
 -- This function is taken from juniors vehfuncs
 function module.GetRealisticSpeed(veh, wheel)
 
+    if module.VehicleCheck(veh) then return end
+    
     local model = getCarModel(veh)
-    if not doesVehicleExist(veh) then return end
-    -- if isCarStopped(veh) then return 0 end
-
     local pVeh = getCarPointer(veh)
     local realisticSpeed = 0
     local frontWheelSize = memory.getfloat(
@@ -65,15 +72,14 @@ function module.GetRealisticSpeed(veh, wheel)
         local fWheelSpeed = ffi.cast("float*", pVeh + 0x758) -- CBike.fWheelSpeed[]
 
         if wheel == nil then
-            realisticSpeed = (fWheelSpeed[1] * frontWheelSize + fWheelSpeed[2] * frontWheelSize) / 2
+            realisticSpeed = (fWheelSpeed[1] * frontWheelSize + 0.08 + fWheelSpeed[2] * frontWheelSize) / 2
         else
             if wheel == 0 then
-                realisticSpeed = fWheelSpeed[wheel] * frontWheelSize
+                realisticSpeed = fWheelSpeed[wheel] * frontWheelSize + 0.08
             else
                 realisticSpeed = fWheelSpeed[wheel] * rearWheelSize
             end
         end
-        realisticSpeed = realisticSpeed + 0.08
     end
 
     if isThisModelAPlane(model) or isThisModelAHeli(model) or isThisModelABoat(model) then
