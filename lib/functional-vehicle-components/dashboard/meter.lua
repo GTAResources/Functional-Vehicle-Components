@@ -61,7 +61,8 @@ function module.Odometer(veh,comp)
 
     local rotation_angle = futil.GetValue(ODOMETER_ROTATION_ANGLE,36,comp.name,"_ax(%w+)")
     local default_type = futil.GetValue(ODOMETER_DEFAULT_TYPE,"analog",comp.name,"_t(%w+)")
-
+    local unit = futil.FindChildData(comp,"unit=",ODOMETER_DEFAULT_UNIT,"mph")
+    
     local current_number = 0
     local new_number = fgsx.Get(veh,"odo_val") or 0
     local bac = 0
@@ -69,6 +70,11 @@ function module.Odometer(veh,comp)
     local model = getCarModel(veh)
     local shown_angle = {}
     local child_comps = {}
+    local mul = 160.9
+
+    if unit == "kph" then
+        mul = 100
+    end
 
     for index, child in ipairs(comp:get_child_components()) do
         table.insert(child_comps, child)
@@ -86,7 +92,7 @@ function module.Odometer(veh,comp)
     while true do
         if futil.VehicleCheck(veh) or offset == nil then return end
 
-        local val = math.abs(math.floor(memory.getfloat(getCarPointer(veh) + offset) / 200))
+        local val = math.abs(math.floor(memory.getfloat(getCarPointer(veh) + offset) / (2.86*mul)))
         new_number = new_number + math.abs(bac - val)
         bac = val
         if current_number ~= new_number then
@@ -101,11 +107,11 @@ function module.Speedometer(veh,comp)
 
     local angle_start = futil.GetValue(SPEEDOMETER_ANGLE_START,0,comp.name,"_ay(-?%d[%d.]*)")
     local angle_end = futil.GetValue(SPEEDOMETER_ANGLE_END,180,comp.name,"_(-?%d[%d.]*)")
-    angle_end = 270
+
     local matrix = comp.modeling_matrix
     local unit = futil.FindChildData(comp,"unit=",SPEEDOMETER_DEFAULT_UNIT,"mph")
     local speedm_max = futil.GetValue(SPEEDOMETER_MAX_SPEED,180,comp.name,"_m(%d+)")
-    speedm_max = 130
+
     local total_rot = futil.CalcTotalRotation(angle_start,angle_end)
     local temp = 0
     local rotation = 0
