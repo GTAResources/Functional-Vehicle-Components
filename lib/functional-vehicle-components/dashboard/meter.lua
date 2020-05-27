@@ -138,7 +138,7 @@ function module.Speedometer(veh,comp)
         end
         
         matrix:rotate_y(rotation)
-
+        
         wait(0)
     end
 end
@@ -166,9 +166,9 @@ function module.RPMmeter(veh, comp)
         if math.floor(memory.getfloat(getCarPointer(veh)+0x49C)) ~= 0 then
             cur_gear = getCarCurrentGear(veh)
         end
-
+        
         if cur_gear ~= 0 then
-            cur_rpm = rea_speed/cur_gear
+            cur_rpm = rea_speed/cur_gear - 2
         end
 
         cur_rpm = cur_rpm < 0 and 0 or cur_rpm

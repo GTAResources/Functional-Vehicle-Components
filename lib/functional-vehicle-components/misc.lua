@@ -12,8 +12,12 @@ function module.Chain(veh,comp)
 
     rotate_chain = function(i)
         if futil.VehicleCheck(veh) then return end
-        futil.HideChildsExcept(chain_table,i)
-        wait(time / math.abs(speed))
+        speed = futil.GetRealisticSpeed(veh, 1)
+
+        if speed >= 2 or speed <= -2 then
+            futil.HideChildsExcept(chain_table,i)
+            wait(time / math.abs(speed))
+        end
     end
 
     flog.ProcessingComponent(comp.name)
@@ -23,16 +27,62 @@ function module.Chain(veh,comp)
 
         speed = futil.GetRealisticSpeed(veh, 1)
         
-        if speed >= 1 then
+        if speed >= 2 then
             for i = 1, #chain_table, 1 do
                 rotate_chain(i)
             end
         end
-        if speed <= -1 then
+        if speed <= -2 then
             for i = #chain_table, 1, -1 do
                 rotate_chain(i)
             end
         end
+        
+       
+        wait(0)
+    end
+end
+
+function module.ExtraWheels(veh,comp)
+    
+    local wheel_no = futil.GetValue(EXTRA_WHEEL_NUMBER,1,comp.name,"_w(%d+)")
+    local rot_mul = futil.GetValue(EXTRA_WHEEL_ROTATION_MULTIPLIER,30,comp.name,"_rmul(%d+)")
+
+    local pVeh = getCarPointer(veh)
+    local model = getCarModel(veh)
+    local matrix = comp.modeling_matrix
+    local rotation = 0
+    local fWheelSpeed = nil
+    
+    if isThisModelABike(model) then
+        fWheelSpeed = ffi.cast("float*", pVeh + 0x758)
+        wheel_no = wheel_no > 1 and 1 or wheel_no
+    end
+    if isThisModelACar(model) then
+        fWheelSpeed = ffi.cast("float*", pVeh + 0x848)
+        wheel_no = wheel_no > 3 and 3 or wheel_no
+    end
+
+    if fWheelSpeed == nil then   
+        flog.Write(string.format("%s can't have extra wheel.",futil.GetNameOfVehicleModel(model)))
+        return
+    end
+
+    flog.ProcessingComponent(comp.name)
+    while true do
+
+        if futil.VehicleCheck(veh) then return end
+        
+        rotation = rotation + fWheelSpeed[wheel_no]*rot_mul
+
+        if rotation > 360 then
+            rotation = rotation - 360
+        end
+        if rotation < 0 then
+            rotation = 360 + rotation
+        end
+        matrix:rotate_x(rotation)
+
         wait(0)
     end
 end
@@ -287,5 +337,6 @@ function module.RearBrake(veh, comp)
         wait(0)
     end
 end
+
 
 return module

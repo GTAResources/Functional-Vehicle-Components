@@ -4,9 +4,11 @@ local log_name = script.this.name .. ".log"
 local file_path = string.format("%s//%s", getGameDirectory(), log_name)
 
 function module.Write(text)
-    local file = io.open(file_path,'a')
-    file:write(string.format("[%s] %s\n",os.date(),text))
-    file:close()
+    if WRITE_INFO_TO_LOG then
+        local file = io.open(file_path,'a')
+        file:write(string.format("[%s] %s\n",os.date(),text))
+        file:close()
+    end
 end
 
 function module.Close()
