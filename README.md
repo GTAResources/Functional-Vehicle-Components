@@ -1,3 +1,10 @@
+<p align="center">
+  <img width="400" height="250" src="https://i.ibb.co/M19SZT0/Untitled-1.png">
+</p>
+
+#
+![GitHub repo size](https://img.shields.io/github/repo-size/user-grinch/Functional-Vehicle-Components?label=Size&style=for-the-badge)
+[![MixMods](https://img.shields.io/badge/Topic-Mixmods-%234e4784?style=for-the-badge)](https://forum.mixmods.com.br/f5-scripts-codigos/t4384-moon-functional-vehicle-components)
 # Introduction
 This is a Grand Theft Auto San Andreas modification which adds features/ functions to various vehicle components. Such as speedometer, odometer, chains and more. It's based on [Moonloader](https://gtaforums.com/topic/890987-moonloader/).
 
